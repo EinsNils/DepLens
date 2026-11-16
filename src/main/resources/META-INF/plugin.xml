@@ -15,5 +15,9 @@
                     anchor="right"
                     icon="AllIcons.Nodes.PpLib"
                     factoryClass="io.github.einsnils.deplens.ui.DepLensToolWindowFactory"/>
+        <applicationConfigurable parentId="tools"
+                                 instance="io.github.einsnils.deplens.settings.DepLensConfigurable"
+                                 id="io.github.einsnils.deplens.settings"
+                                 displayName="DepLens"/>
     </extensions>
 </idea-plugin>
