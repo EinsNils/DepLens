@@ -94,4 +94,43 @@ class DependencyGraphMapperTest {
         assertThat(nodes.get(3).conflict()).isEqualTo("conflict with 2.13.0");
         assertThat(nodes.get(3).isUnresolved()).isFalse();
     }
+
+    private FakeDep jackson(FakeScope scope, FakeDep parent) {
+        return new FakeDep(new FakeArtifact(JACKSON, "jackson-core", "2.15.2"), scope, parent);
+    }
+
+    @Test
+    void childlessDuplicateOfExpandedNodeInSameConfigurationIsOmitted() {
+        FakeDep expanded = jackson(runtime, web);
+        FakeDep child = new FakeDep(new FakeArtifact("a", "b", "1"), runtime, expanded);
+        FakeDep repeated = jackson(runtime, root);
+
+        DependencyGraph graph = mapper.map(":app", List.of(root, web, expanded, child, repeated));
+
+        List<DependencyNode> core = graph.allNodes().stream()
+                .filter(n -> n.artifactId().equals("jackson-core")).toList();
+        assertThat(core).hasSize(2);
+        assertThat(core.stream().filter(n -> !n.children().isEmpty()).allMatch(n -> !n.isOmitted())).isTrue();
+        assertThat(core.stream().filter(n -> n.children().isEmpty()).allMatch(DependencyNode::isOmitted)).isTrue();
+    }
+
+    @Test
+    void duplicateInDifferentConfigurationIsNotOmitted() {
+        FakeScope test = new FakeScope("testRuntimeClasspath");
+        FakeDep testRoot = new FakeDep(new FakeModule(":app"), test, null);
+        FakeDep expanded = jackson(runtime, root);
+        FakeDep child = new FakeDep(new FakeArtifact("a", "b", "1"), runtime, expanded);
+        FakeDep otherConfig = jackson(test, testRoot);
+
+        DependencyGraph graph = mapper.map(":app", List.of(root, expanded, child, testRoot, otherConfig));
+
+        assertThat(graph.allNodes()).noneMatch(DependencyNode::isOmitted);
+    }
+
+    @Test
+    void childlessDuplicatesAreNotOmitted() {
+        DependencyGraph graph = mapper.map(":app", List.of(root, jackson(runtime, root), jackson(runtime, web)));
+
+        assertThat(graph.allNodes()).noneMatch(DependencyNode::isOmitted);
+    }
 }
