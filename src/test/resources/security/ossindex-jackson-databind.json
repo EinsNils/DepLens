@@ -1,0 +1,42 @@
+[
+  {
+    "coordinates": "pkg:maven/com.fasterxml.jackson.core/jackson-databind@2.13.0",
+    "description": "General data-binding functionality for Jackson",
+    "reference": "https://ossindex.sonatype.org/component/pkg:maven/com.fasterxml.jackson.core/jackson-databind@2.13.0",
+    "vulnerabilities": [
+      {
+        "id": "CVE-2022-42003",
+        "displayName": "CVE-2022-42003",
+        "title": "[CVE-2022-42003] CWE-502: Deserialization of Untrusted Data",
+        "cvssScore": 7.5,
+        "cve": "CVE-2022-42003",
+        "reference": "https://ossindex.sonatype.org/vulnerability/CVE-2022-42003"
+      },
+      {
+        "id": "sonatype-2024-0001",
+        "displayName": "sonatype-2024-0001",
+        "title": "Sonatype only finding",
+        "cvssScore": 9.8,
+        "reference": "https://ossindex.sonatype.org/vulnerability/sonatype-2024-0001"
+      }
+    ]
+  },
+  {
+    "coordinates": "pkg:maven/com.fasterxml.jackson.core/jackson-databind@2.13.4.2",
+    "reference": "https://ossindex.sonatype.org/component/pkg:maven/com.fasterxml.jackson.core/jackson-databind@2.13.4.2",
+    "vulnerabilities": [
+      {
+        "id": "CVE-2099-0001",
+        "title": "Finding only known to OSS Index",
+        "cvssScore": 5.0,
+        "cve": "CVE-2099-0001",
+        "reference": "https://ossindex.sonatype.org/vulnerability/CVE-2099-0001"
+      }
+    ]
+  },
+  {
+    "coordinates": "pkg:maven/com.fasterxml.jackson.core/jackson-databind@2.13.5",
+    "reference": "https://ossindex.sonatype.org/component/pkg:maven/com.fasterxml.jackson.core/jackson-databind@2.13.5",
+    "vulnerabilities": []
+  }
+]

@@ -1,0 +1,57 @@
+{
+  "vulns": [
+    {
+      "id": "GHSA-jjjh-jjxp-wpff",
+      "summary": "Uncontrolled Resource Consumption in Jackson-databind",
+      "aliases": ["CVE-2022-42003"],
+      "database_specific": {"severity": "HIGH"},
+      "affected": [
+        {
+          "package": {"ecosystem": "Maven", "name": "com.fasterxml.jackson.core:jackson-databind"},
+          "ranges": [
+            {"type": "ECOSYSTEM", "events": [
+              {"introduced": "2.4.0-rc1"}, {"fixed": "2.12.7.1"},
+              {"introduced": "2.13.0"}, {"fixed": "2.13.4.2"}
+            ]}
+          ]
+        }
+      ]
+    },
+    {
+      "id": "GHSA-rgv9-q543-rqg4",
+      "summary": "Uncontrolled Resource Consumption in FasterXML jackson-databind",
+      "aliases": ["CVE-2022-42004"],
+      "database_specific": {"severity": "HIGH"},
+      "affected": [
+        {
+          "package": {"ecosystem": "Maven", "name": "com.fasterxml.jackson.core:jackson-databind"},
+          "ranges": [
+            {"type": "ECOSYSTEM", "events": [
+              {"introduced": "0"}, {"fixed": "2.12.7.1"},
+              {"introduced": "2.13.0"}, {"fixed": "2.13.4"}
+            ]}
+          ]
+        }
+      ]
+    },
+    {
+      "id": "GHSA-test-last-affected",
+      "summary": "Test entry with last_affected and explicit versions",
+      "affected": [
+        {
+          "package": {"ecosystem": "Maven", "name": "com.fasterxml.jackson.core:jackson-databind"},
+          "ranges": [
+            {"type": "ECOSYSTEM", "events": [{"introduced": "2.14.0"}, {"last_affected": "2.14.1"}]},
+            {"type": "GIT", "events": [{"introduced": "abc"}, {"fixed": "def"}]}
+          ],
+          "versions": ["2.10.0"]
+        },
+        {
+          "package": {"ecosystem": "Maven", "name": "other.group:other-artifact"},
+          "versions": ["2.15.0"]
+        }
+      ]
+    }
+  ],
+  "next_page_token": "page-2"
+}
