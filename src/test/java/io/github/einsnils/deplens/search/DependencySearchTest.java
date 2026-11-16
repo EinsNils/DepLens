@@ -2,7 +2,9 @@ package io.github.einsnils.deplens.search;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
+import io.github.einsnils.deplens.model.DependencyNode;
 import io.github.einsnils.deplens.model.TestGraphs;
+import java.util.List;
 import org.junit.jupiter.api.Test;
 
 class DependencySearchTest {
@@ -23,10 +25,13 @@ class DependencySearchTest {
     }
 
     @Test
-    void blankQueryFindsNothing() {
-        assertThat(DependencySearch.search(g.graph, "")).isEmpty();
-        assertThat(DependencySearch.search(g.graph, "   ")).isEmpty();
-        assertThat(DependencySearch.search(g.graph, null)).isEmpty();
+    void blankQueryListsAllDependenciesExceptModuleRoots() {
+        List<DependencyNode> all = List.of(
+                g.coreModule, g.omittedCore, g.jacksonCore, g.databindRuntime, g.databindTest, g.json, g.web);
+
+        assertThat(DependencySearch.search(g.graph, "")).extracting(SearchHit::node).containsExactlyElementsOf(all);
+        assertThat(DependencySearch.search(g.graph, "   ")).extracting(SearchHit::node).containsExactlyElementsOf(all);
+        assertThat(DependencySearch.search(g.graph, null)).extracting(SearchHit::node).containsExactlyElementsOf(all);
     }
 
     @Test

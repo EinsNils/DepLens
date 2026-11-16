@@ -6,7 +6,10 @@ import java.util.List;
 import java.util.Locale;
 import org.jetbrains.annotations.Nullable;
 
-/** Teilstring-Suche (ohne Groß-/Kleinschreibung) auf {@code group:artifact:version}. */
+/**
+ * Teilstring-Suche (ohne Groß-/Kleinschreibung) auf {@code group:artifact:version}.
+ * Eine leere Suche liefert alle Dependencies.
+ */
 public final class DependencySearch {
     private static final Comparator<SearchHit> ORDER = Comparator
             .comparing((SearchHit hit) -> hit.node().coordinates())
@@ -18,9 +21,6 @@ public final class DependencySearch {
 
     public static List<SearchHit> search(DependencyGraph graph, @Nullable String query) {
         String needle = query == null ? "" : query.strip().toLowerCase(Locale.ROOT);
-        if (needle.isEmpty()) {
-            return List.of();
-        }
         return graph.allNodes().stream()
                 .filter(node -> !node.isRoot())
                 .filter(node -> node.coordinates().toLowerCase(Locale.ROOT).contains(needle))
