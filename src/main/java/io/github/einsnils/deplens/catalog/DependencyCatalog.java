@@ -9,6 +9,7 @@ import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 import java.util.TreeMap;
+import java.util.function.Predicate;
 import org.jetbrains.annotations.Nullable;
 
 /**
@@ -49,5 +50,14 @@ public final class DependencyCatalog {
 
     public static int entryCount(List<CatalogCategory> categories) {
         return categories.stream().mapToInt(category -> category.entries().size()).sum();
+    }
+
+    /** Behält nur Einträge, die {@code keep} erfüllen; leere Kategorien entfallen. */
+    public static List<CatalogCategory> filter(List<CatalogCategory> categories, Predicate<CatalogEntry> keep) {
+        return categories.stream()
+                .map(category -> new CatalogCategory(category.name(),
+                        category.entries().stream().filter(keep).toList()))
+                .filter(category -> !category.entries().isEmpty())
+                .toList();
     }
 }

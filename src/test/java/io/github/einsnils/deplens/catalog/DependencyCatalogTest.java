@@ -79,4 +79,14 @@ class DependencyCatalogTest {
     void entryCountSumsAllCategories() {
         assertThat(DependencyCatalog.entryCount(DependencyCatalog.build(g.graph, ""))).isEqualTo(5);
     }
+
+    @Test
+    void filterKeepsMatchingEntriesAndDropsEmptyCategories() {
+        List<CatalogCategory> filtered = DependencyCatalog.filter(DependencyCatalog.build(g.graph, ""),
+                entry -> entry.coordinates().contains("databind"));
+
+        assertThat(filtered).extracting(CatalogCategory::name).containsExactly("Jackson");
+        assertThat(filtered.getFirst().entries()).extracting(CatalogEntry::coordinates)
+                .containsExactly(JACKSON + ":jackson-databind:2.15.2");
+    }
 }
