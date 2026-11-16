@@ -4,6 +4,7 @@ import com.intellij.icons.AllIcons;
 import com.intellij.openapi.Disposable;
 import com.intellij.openapi.application.ApplicationManager;
 import com.intellij.openapi.application.ModalityState;
+import com.intellij.openapi.diagnostic.ControlFlowException;
 import com.intellij.openapi.diagnostic.Logger;
 import com.intellij.openapi.externalSystem.dependency.analyzer.DependencyAnalyzerProject;
 import com.intellij.openapi.progress.ProcessCanceledException;
@@ -38,6 +39,7 @@ import javax.swing.JComponent;
 import javax.swing.JList;
 import javax.swing.JPanel;
 import javax.swing.SwingConstants;
+import javax.swing.ToolTipManager;
 import javax.swing.event.DocumentEvent;
 
 /** Inhalt des DepLens-Tool-Windows. */
@@ -87,7 +89,7 @@ public final class DepLensPanel extends JPanel implements Disposable {
         });
 
         JButton refreshButton = new JButton(AllIcons.Actions.Refresh);
-        refreshButton.setToolTipText("Neu laden");
+        refreshButton.setToolTipText("Neu laden (für neue Daten Gradle-Sync ausführen)");
         refreshButton.addActionListener(e -> {
             source.reset();
             reloadModules();
@@ -113,6 +115,9 @@ public final class DepLensPanel extends JPanel implements Disposable {
         });
         parentsTree.setCellRenderer(parentsRenderer);
         childrenTree.setCellRenderer(childrenRenderer);
+        ToolTipManager.sharedInstance().registerComponent(parentsTree);
+        ToolTipManager.sharedInstance().registerComponent(childrenTree);
+        hitList.setFixedCellHeight(JBUI.scale(22));
         parentsTree.setRootVisible(true);
         childrenTree.setRootVisible(true);
 
@@ -231,13 +236,24 @@ public final class DepLensPanel extends JPanel implements Disposable {
         inBackground(request, () -> source.load(module), loaded -> {
             loadingPanel.stopLoading();
             graph = loaded;
-            onGraphLoaded();
+            if (loaded.isEmpty()) {
+                showMessage("Keine Dependencies für „" + module.getTitle()
+                        + "“ geladen – ist der Gradle-Lauf fehlgeschlagen? Details im Build-Fenster.", true);
+            } else {
+                onGraphLoaded();
+            }
         });
     }
 
     /** Runs work off the EDT; results, cancellations and failures of superseded requests are discarded. */
     private <T> void inBackground(long request, Supplier<T> work, Consumer<T> onEdt) {
+        if (disposed) {
+            return;
+        }
         ApplicationManager.getApplication().executeOnPooledThread(() -> {
+            if (disposed) {
+                return;
+            }
             try {
                 T result = work.get();
                 runOnEdt(() -> {
@@ -252,6 +268,9 @@ public final class DepLensPanel extends JPanel implements Disposable {
                     }
                 });
             } catch (Throwable e) {
+                if (e instanceof ControlFlowException) {
+                    throw e;
+                }
                 LOG.warn("DepLens: loading failed", e);
                 String detail = e.getMessage() != null ? e.getMessage() : e.getClass().getSimpleName();
                 runOnEdt(() -> {
