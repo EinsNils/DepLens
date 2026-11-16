@@ -41,15 +41,20 @@ Wir nutzen IntelliJs eingebauten Dependency Analyzer über die öffentliche Plat
 - `getDependencies(project)` → flache Liste von `DependencyAnalyzerDependency` mit
   `getData()` (`Artifact`: groupId/artifactId/version, oder `Module`: name), `getScope()`,
   `getParent()` und `getStatus()`.
-- `Status.Omitted` = Unterbaum wurde bereits an anderer Stelle aufgelöst (Gradles `(*)`).
-- `Status.Warning` = Versionskonflikt (Gradle-Selection-Reason „between versions …“) oder
+- `Status.Omitted` wird vom Contributor in 2026.2 nicht gesendet; ein wiederholter Unterbaum kommt als
+  kinderloses Blatt an. `(*)` erkennt DepLens daher selbst: kinderloser Artefakt-Knoten, dessen
+  Koordinaten in derselben Configuration an einem Knoten mit Kindern vorkommen. Ein evtl. gesendetes
+  `Status.Omitted` wird weiterhin ausgewertet.
+- `Status.Warning` = Versionskonflikt (angezeigt wird IntelliJs Text „conflict with <Version>“) oder
   nicht auflösbare Dependency.
+- Gradle-Fehler schluckt der Contributor (nur Log) und liefert eine leere Liste; DepLens zeigt das
+  als Fehlermeldung mit „Erneut versuchen“.
 - `whenDataChanged(listener, disposable)` → Neuladen nach Gradle-Sync.
 
 **Bekannte Einschränkung:** Ein Knoten trägt nur die *aufgelöste* Version. Bei Konflikten
-gibt es eine Warning mit Gradles Begründung (z. B. „between versions 2.15.2 and 2.13.0“),
+gibt es eine Warning mit der konkurrierenden Version (z. B. „conflict with 2.13.0“),
 aber nicht, welcher Parent welche Version angefordert hat. Die Anzeige ist daher
-„2.15.2 ⚠ Konflikt: between versions 2.15.2 and 2.13.0“, nicht `2.13.0 → 2.15.2` pro Pfad.
+„2.15.2 ⚠ Konflikt: conflict with 2.13.0“, nicht `2.13.0 → 2.15.2` pro Pfad.
 Falls das später nötig ist, kann ein eigenes Gradle-Init-Script ergänzt werden.
 
 `getDependencies` kann einen Gradle-Lauf auslösen und wird daher nie auf dem EDT aufgerufen.

@@ -22,4 +22,4 @@ Installation: *Settings → Plugins → ⚙ → Install Plugin from Disk…* und
 
 DepLens nutzt IntelliJs eingebauten Gradle-Dependency-Analyzer
 (`DependencyAnalyzerContributor`). Pro Knoten ist nur die aufgelöste Version bekannt;
-Versionskonflikte erscheinen als ⚠ mit Gradles Begründung.
+Versionskonflikte erscheinen als ⚠ mit der konkurrierenden Version.

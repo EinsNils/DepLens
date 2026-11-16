@@ -40,7 +40,10 @@ public final class GradleDependencySource implements Disposable {
         return mapper.map(module.getTitle(), current.getDependencies(module));
     }
 
-    /** Verwirft den Contributor samt Cache; der nächste Aufruf fragt Gradle neu. */
+    /**
+     * Verwirft den Contributor und seine Listener. Die Daten liegen im projektweiten Index von IntelliJ und
+     * werden erst nach einem Gradle-Sync neu geladen; ein neuer Contributor liest zunächst nur diesen Index.
+     */
     public synchronized void reset() {
         if (contributorDisposable != null) {
             Disposer.dispose(contributorDisposable);
