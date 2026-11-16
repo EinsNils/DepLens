@@ -11,22 +11,22 @@ import com.intellij.openapi.progress.ProcessCanceledException;
 import com.intellij.openapi.project.Project;
 import com.intellij.openapi.ui.ComboBox;
 import com.intellij.openapi.util.Disposer;
-import com.intellij.ui.CollectionListModel;
 import com.intellij.ui.DocumentAdapter;
 import com.intellij.ui.OnePixelSplitter;
 import com.intellij.ui.SearchTextField;
 import com.intellij.ui.SimpleListCellRenderer;
 import com.intellij.ui.components.JBLabel;
-import com.intellij.ui.components.JBList;
 import com.intellij.ui.components.JBLoadingPanel;
 import com.intellij.ui.components.JBScrollPane;
 import com.intellij.ui.treeStructure.Tree;
 import com.intellij.util.Alarm;
 import com.intellij.util.ui.JBUI;
+import com.intellij.util.ui.tree.TreeUtil;
+import io.github.einsnils.deplens.catalog.CatalogCategory;
+import io.github.einsnils.deplens.catalog.CatalogEntry;
+import io.github.einsnils.deplens.catalog.DependencyCatalog;
 import io.github.einsnils.deplens.gradle.GradleDependencySource;
 import io.github.einsnils.deplens.model.DependencyGraph;
-import io.github.einsnils.deplens.search.DependencySearch;
-import io.github.einsnils.deplens.search.SearchHit;
 import java.awt.BorderLayout;
 import java.awt.CardLayout;
 import java.util.List;
@@ -41,8 +41,8 @@ import javax.swing.SwingConstants;
 import javax.swing.ToolTipManager;
 import javax.swing.event.DocumentEvent;
 import javax.swing.tree.DefaultMutableTreeNode;
-import javax.swing.tree.DefaultTreeModel;
 import javax.swing.tree.TreePath;
+import org.jetbrains.annotations.Nullable;
 
 /** Inhalt des DepLens-Tool-Windows. */
 public final class DepLensPanel extends JPanel implements Disposable {
@@ -55,8 +55,7 @@ public final class DepLensPanel extends JPanel implements Disposable {
     private final ComboBox<DependencyAnalyzerProject> moduleBox = new ComboBox<>();
     private final SearchTextField searchField = new SearchTextField(false);
     private final Alarm searchAlarm = new Alarm(Alarm.ThreadToUse.SWING_THREAD, this);
-    private final CollectionListModel<SearchHit> hitModel = new CollectionListModel<>();
-    private final JBList<SearchHit> hitList = new JBList<>(hitModel);
+    private final Tree catalogTree = new Tree(TreeModels.empty());
     private final Tree pathTree = new Tree(TreeModels.empty());
     private final DependencyTreeCellRenderer pathRenderer = new DependencyTreeCellRenderer();
     private final JBLabel listTitle = sectionTitle("");
@@ -66,10 +65,12 @@ public final class DepLensPanel extends JPanel implements Disposable {
     private final CardLayout cards = new CardLayout();
     private final JPanel cardPanel = new JPanel(cards);
     private final JBLabel messageLabel = new JBLabel("", SwingConstants.CENTER);
-    private final JButton retryButton = new JButton("Erneut versuchen");
+    private final JButton retryButton = new JButton("Gradle neu laden");
     private final JBLoadingPanel loadingPanel;
     private volatile boolean disposed;
     private boolean updatingModules;
+    /** Ein automatischer Gradle-Sync pro Panel, damit ein leeres Projekt keine Endlosschleife auslöst. */
+    private boolean autoSyncDone;
 
     DependencyGraph graph = DependencyGraph.empty("");
 
@@ -92,11 +93,8 @@ public final class DepLensPanel extends JPanel implements Disposable {
         });
 
         JButton refreshButton = new JButton(AllIcons.Actions.Refresh);
-        refreshButton.setToolTipText("Neu laden (für neue Daten Gradle-Sync ausführen)");
-        refreshButton.addActionListener(e -> {
-            source.reset();
-            reloadModules();
-        });
+        refreshButton.setToolTipText("Gradle neu laden");
+        refreshButton.addActionListener(e -> syncGradle());
 
         toolbar.setBorder(JBUI.Borders.empty(8));
         toolbar.add(moduleBox, BorderLayout.WEST);
@@ -110,23 +108,22 @@ public final class DepLensPanel extends JPanel implements Disposable {
         });
         toolbar.add(refreshButton, BorderLayout.EAST);
 
-        hitList.setCellRenderer(new SearchHitCellRenderer());
-        hitList.addListSelectionListener(e -> {
-            if (!e.getValueIsAdjusting()) {
-                showHit(hitList.getSelectedValue());
-            }
-        });
-        hitList.setFixedCellHeight(JBUI.scale(26));
+        catalogTree.setRootVisible(false);
+        catalogTree.setShowsRootHandles(true);
+        catalogTree.setCellRenderer(new CatalogTreeCellRenderer());
+        catalogTree.setBorder(JBUI.Borders.empty(4));
+        catalogTree.setRowHeight(JBUI.scale(26));
+        catalogTree.addTreeSelectionListener(e -> showEntry(selectedEntry()));
+        ToolTipManager.sharedInstance().registerComponent(catalogTree);
+
+        pathTree.setRootVisible(false);
+        pathTree.setShowsRootHandles(true);
         pathTree.setCellRenderer(pathRenderer);
-        pathTree.setRootVisible(true);
         pathTree.setBorder(JBUI.Borders.empty(4, 8));
         ToolTipManager.sharedInstance().registerComponent(pathTree);
         pathSection = section(sectionTitle("Abhängigkeitspfad"), new JBScrollPane(pathTree));
 
-        retryButton.addActionListener(e -> {
-            source.reset();
-            reloadModules();
-        });
+        retryButton.addActionListener(e -> syncGradle());
         JPanel messagePanel = new JPanel(new BorderLayout());
         messagePanel.add(messageLabel, BorderLayout.CENTER);
         JPanel retryRow = new JPanel();
@@ -145,9 +142,9 @@ public final class DepLensPanel extends JPanel implements Disposable {
         reloadModules();
     }
 
-    /** Liste oben; der Abhängigkeitspfad wird erst bei einer Auswahl unten eingeblendet. */
+    /** Kategorie-Liste oben; der Abhängigkeitspfad wird erst bei einer Auswahl unten eingeblendet. */
     private JComponent createContent() {
-        contentSplitter.setFirstComponent(section(listTitle, new JBScrollPane(hitList)));
+        contentSplitter.setFirstComponent(section(listTitle, new JBScrollPane(catalogTree)));
         return contentSplitter;
     }
 
@@ -173,41 +170,76 @@ public final class DepLensPanel extends JPanel implements Disposable {
 
     private void runSearch() {
         String query = searchField.getText();
-        List<SearchHit> hits = DependencySearch.search(graph, query);
         boolean searching = !query.isBlank();
-        hitModel.replaceAll(hits);
-        listTitle.setText((searching ? "Treffer" : "Alle Dependencies") + " (" + hits.size() + ")");
-        hitList.getEmptyText().setText(searching
+        List<CatalogCategory> categories = DependencyCatalog.build(graph, query);
+        catalogTree.setModel(TreeModels.catalog(categories));
+        listTitle.setText((searching ? "Treffer" : "Alle Dependencies")
+                + " (" + DependencyCatalog.entryCount(categories) + ")");
+        catalogTree.getEmptyText().setText(searching
                 ? "Keine Treffer für ‚" + query.strip() + "‘"
                 : "Keine Dependencies");
-        if (searching && !hits.isEmpty()) {
-            hitList.setSelectedIndex(0);
-            // Listener feuert nicht, wenn Index 0 schon ausgewählt war
-            showHit(hitList.getSelectedValue());
+        if (searching && !categories.isEmpty()) {
+            TreeUtil.expandAll(catalogTree);
+            DefaultMutableTreeNode root = (DefaultMutableTreeNode) catalogTree.getModel().getRoot();
+            DefaultMutableTreeNode firstEntry = (DefaultMutableTreeNode) root.getFirstChild().getChildAt(0);
+            catalogTree.setSelectionPath(new TreePath(firstEntry.getPath()));
         } else {
-            hitList.clearSelection();
-            showHit(null);
+            catalogTree.clearSelection();
+            showEntry(null);
         }
     }
 
-    /** Zeigt den Pfad Modul → … → Treffer samt Children; ohne Treffer wird der Bereich ausgeblendet. */
-    private void showHit(SearchHit hit) {
-        if (hit == null) {
+    private @Nullable CatalogEntry selectedEntry() {
+        Object selected = catalogTree.getLastSelectedPathComponent();
+        return selected instanceof DefaultMutableTreeNode node && node.getUserObject() instanceof CatalogEntry entry
+                ? entry
+                : null;
+    }
+
+    /** Zeigt alle Wege zur Dependency samt Children; ohne Auswahl wird der Bereich ausgeblendet. */
+    private void showEntry(@Nullable CatalogEntry entry) {
+        if (entry == null) {
             pathTree.setModel(TreeModels.empty());
             contentSplitter.setSecondComponent(null);
             return;
         }
-        pathRenderer.setHighlighted(hit.node());
-        DefaultTreeModel model = TreeModels.pathWithChildren(hit);
-        pathTree.setModel(model);
-        DefaultMutableTreeNode hitNode = TreeModels.hitNode(model, hit);
-        TreePath hitPath = new TreePath(hitNode.getPath());
-        pathTree.expandPath(hitPath);
-        for (int i = 0; i < hitNode.getChildCount(); i++) {
-            pathTree.expandPath(hitPath.pathByAddingChild(hitNode.getChildAt(i)));
+        TreeModels.PathTree tree = TreeModels.allPaths(entry);
+        pathRenderer.setHighlighted(entry.occurrences());
+        pathTree.setModel(tree.model());
+        for (DefaultMutableTreeNode hitNode : tree.hitNodes()) {
+            TreePath hitPath = new TreePath(hitNode.getPath());
+            pathTree.expandPath(hitPath);
+            for (int i = 0; i < hitNode.getChildCount(); i++) {
+                pathTree.expandPath(hitPath.pathByAddingChild(hitNode.getChildAt(i)));
+            }
         }
         contentSplitter.setSecondComponent(pathSection);
-        pathTree.scrollPathToVisible(hitPath);
+        pathTree.scrollPathToVisible(new TreePath(tree.hitNodes().getFirst().getPath()));
+    }
+
+    /** Startet einen Gradle-Sync; danach lädt {@code whenDataChanged} die Module neu. */
+    private void syncGradle() {
+        source.reset();
+        if (source.requestSync()) {
+            showMessage("Gradle wird neu geladen … DepLens aktualisiert sich danach automatisch.", false);
+        } else {
+            reloadModules();
+        }
+    }
+
+    /**
+     * Zeigt den Hinweis zu fehlenden Daten. Beim ersten Mal wird stattdessen automatisch ein Gradle-Sync
+     * gestartet, damit DepLens ohne manuellen Sync alle Dependencies erkennt.
+     */
+    private void handleMissingData(String message) {
+        if (!autoSyncDone) {
+            autoSyncDone = true;
+            if (source.requestSync()) {
+                showMessage("Gradle-Projekt wird geladen … DepLens aktualisiert sich danach automatisch.", false);
+                return;
+            }
+        }
+        showMessage(message, true);
     }
 
     private void reloadModules() {
@@ -230,7 +262,7 @@ public final class DepLensPanel extends JPanel implements Disposable {
             }
             if (modules.isEmpty()) {
                 graph = DependencyGraph.empty("");
-                showMessage("Kein Gradle-Projekt gefunden – bitte Gradle-Sync ausführen.", false);
+                handleMissingData("Kein Gradle-Projekt gefunden.");
             } else {
                 loadSelectedModule();
             }
@@ -248,8 +280,8 @@ public final class DepLensPanel extends JPanel implements Disposable {
             loadingPanel.stopLoading();
             graph = loaded;
             if (loaded.isEmpty()) {
-                showMessage("Keine Dependencies für „" + module.getTitle()
-                        + "“ geladen – ist der Gradle-Lauf fehlgeschlagen? Details im Build-Fenster.", true);
+                handleMissingData("Keine Dependencies für „" + module.getTitle()
+                        + "“ – ist der Gradle-Lauf fehlgeschlagen? Details im Build-Fenster.");
             } else {
                 onGraphLoaded();
             }
@@ -273,13 +305,10 @@ public final class DepLensPanel extends JPanel implements Disposable {
                     }
                 });
             } catch (ProcessCanceledException e) {
-                runOnEdt(() -> {
-                    if (sequencer.isCurrent(request)) {
-                        loadingPanel.stopLoading();
-                    }
-                });
+                stopLoadingIfCurrent(request);
             } catch (Throwable e) {
                 if (e instanceof ControlFlowException) {
+                    stopLoadingIfCurrent(request);
                     throw e;
                 }
                 LOG.warn("DepLens: loading failed", e);
@@ -290,6 +319,14 @@ public final class DepLensPanel extends JPanel implements Disposable {
                         showMessage("Laden fehlgeschlagen: " + detail, true);
                     }
                 });
+            }
+        });
+    }
+
+    private void stopLoadingIfCurrent(long request) {
+        runOnEdt(() -> {
+            if (sequencer.isCurrent(request)) {
+                loadingPanel.stopLoading();
             }
         });
     }

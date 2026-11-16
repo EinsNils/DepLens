@@ -4,10 +4,11 @@ import com.intellij.icons.AllIcons;
 import com.intellij.ui.JBColor;
 import com.intellij.ui.SimpleColoredComponent;
 import com.intellij.ui.SimpleTextAttributes;
+import io.github.einsnils.deplens.catalog.CatalogEntry;
 import io.github.einsnils.deplens.model.DependencyNode;
 import org.jetbrains.annotations.Nullable;
 
-/** Einheitliche Darstellung eines Knotens in Liste und Bäumen. */
+/** Einheitliche Darstellung von Dependencies in Liste und Baum. */
 final class NodeText {
     private static final SimpleTextAttributes WARNING =
             new SimpleTextAttributes(SimpleTextAttributes.STYLE_PLAIN, JBColor.ORANGE);
@@ -47,6 +48,35 @@ final class NodeText {
         if (node.isOmitted()) {
             target.append("  (*)", SimpleTextAttributes.GRAYED_ATTRIBUTES);
         }
+    }
+
+    /** Kompakte Zeile für die Kategorie-Liste: Artefakt, Version, Gruppe und Warnungen aller Vorkommen. */
+    static void appendEntry(SimpleColoredComponent target, CatalogEntry entry) {
+        DependencyNode node = entry.representative();
+        target.setIcon(node.kind() == DependencyNode.Kind.MODULE ? AllIcons.Nodes.Module : AllIcons.Nodes.PpLib);
+        target.append(node.name(), entry.isUnresolved()
+                ? SimpleTextAttributes.ERROR_ATTRIBUTES
+                : SimpleTextAttributes.REGULAR_ATTRIBUTES);
+        if (node.kind() == DependencyNode.Kind.ARTIFACT) {
+            target.append("  " + node.version(), SimpleTextAttributes.GRAYED_ATTRIBUTES);
+            target.append("   " + node.groupId(), SimpleTextAttributes.GRAYED_SMALL_ATTRIBUTES);
+        }
+        if (entry.conflict() != null) {
+            target.append("  ⚠", WARNING);
+        }
+        if (entry.isUnresolved()) {
+            target.append("  nicht auflösbar", SimpleTextAttributes.ERROR_ATTRIBUTES);
+        }
+    }
+
+    static @Nullable String tooltip(CatalogEntry entry) {
+        if (entry.isUnresolved()) {
+            return "Gradle konnte diese Dependency nicht auflösen";
+        }
+        if (entry.conflict() != null) {
+            return "Versionskonflikt: " + entry.conflict();
+        }
+        return null;
     }
 
     static @Nullable String tooltip(DependencyNode node) {

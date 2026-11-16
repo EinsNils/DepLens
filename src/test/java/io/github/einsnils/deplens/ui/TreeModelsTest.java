@@ -2,8 +2,10 @@ package io.github.einsnils.deplens.ui;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
+import io.github.einsnils.deplens.catalog.CatalogCategory;
+import io.github.einsnils.deplens.catalog.CatalogEntry;
+import io.github.einsnils.deplens.catalog.DependencyCatalog;
 import io.github.einsnils.deplens.model.TestGraphs;
-import io.github.einsnils.deplens.search.SearchHit;
 import java.util.Collections;
 import java.util.List;
 import javax.swing.tree.DefaultMutableTreeNode;
@@ -14,41 +16,50 @@ class TreeModelsTest {
     private final TestGraphs g = new TestGraphs();
 
     @Test
-    void pathRunsFromModuleToHitAndHitKeepsItsChildren() {
-        DefaultTreeModel model = TreeModels.pathWithChildren(new SearchHit(g.databindRuntime));
+    void catalogHasCategoriesWithTheirEntriesUnderAHiddenRoot() {
+        List<CatalogCategory> categories = DependencyCatalog.build(g.graph, "");
 
-        assertThat(userObjects(model)).containsExactly(
-                g.runtimeRoot, g.web, g.json, g.databindRuntime, g.jacksonCore);
+        DefaultTreeModel model = TreeModels.catalog(categories);
+
         DefaultMutableTreeNode root = (DefaultMutableTreeNode) model.getRoot();
+        assertThat(root.getChildCount()).isEqualTo(3);
+        DefaultMutableTreeNode jackson = (DefaultMutableTreeNode) root.getChildAt(0);
+        assertThat(jackson.getUserObject()).isEqualTo(categories.getFirst());
+        assertThat(((DefaultMutableTreeNode) jackson.getChildAt(1)).getUserObject())
+                .isEqualTo(categories.getFirst().entries().get(1));
+    }
+
+    @Test
+    void allPathsShowsEveryOccurrencePerConfigurationWithItsChildren() {
+        TreeModels.PathTree tree = TreeModels.allPaths(entry("jackson-databind"));
+
+        DefaultMutableTreeNode root = (DefaultMutableTreeNode) tree.model().getRoot();
+        assertThat(root.getUserObject()).isNull();
+        assertThat(userObjects(tree.model())).containsExactly(
+                g.runtimeRoot, g.web, g.json, g.databindRuntime, g.jacksonCore,
+                g.testRoot, g.databindTest);
+        assertThat(tree.hitNodes()).extracting(DefaultMutableTreeNode::getUserObject)
+                .containsExactly(g.databindRuntime, g.databindTest);
+    }
+
+    @Test
+    void sharedPathPrefixesAreMerged() {
+        TreeModels.PathTree tree = TreeModels.allPaths(entry("jackson-core"));
+
+        DefaultMutableTreeNode root = (DefaultMutableTreeNode) tree.model().getRoot();
         assertThat(root.getChildCount()).isEqualTo(1);
+        assertThat(userObjects(tree.model())).containsExactly(
+                g.runtimeRoot, g.web, g.json, g.databindRuntime, g.jacksonCore, g.coreModule, g.omittedCore);
+        assertThat(tree.hitNodes()).extracting(DefaultMutableTreeNode::getUserObject)
+                .containsExactly(g.jacksonCore, g.omittedCore);
     }
 
     @Test
-    void siblingsOfThePathAreLeftOut() {
-        DefaultTreeModel model = TreeModels.pathWithChildren(new SearchHit(g.web));
+    void siblingsOfThePathsAreLeftOut() {
+        TreeModels.PathTree tree = TreeModels.allPaths(entry("spring-boot-starter-json"));
 
-        assertThat(userObjects(model)).containsExactly(
+        assertThat(userObjects(tree.model())).containsExactly(
                 g.runtimeRoot, g.web, g.json, g.databindRuntime, g.jacksonCore);
-        assertThat(userObjects(model)).doesNotContain(g.coreModule);
-    }
-
-    @Test
-    void omittedHitEndsThePath() {
-        DefaultTreeModel model = TreeModels.pathWithChildren(new SearchHit(g.omittedCore));
-
-        assertThat(userObjects(model)).containsExactly(g.runtimeRoot, g.coreModule, g.omittedCore);
-    }
-
-    @Test
-    void hitTreeNodeIsTheDeepestPathNode() {
-        SearchHit hit = new SearchHit(g.runtimeRoot.children().getFirst());
-        DefaultMutableTreeNode hitNode = TreeModels.hitNode(TreeModels.pathWithChildren(hit), hit);
-
-        assertThat(hitNode.getUserObject()).isSameAs(g.web);
-        assertThat(hitNode.getChildCount()).isEqualTo(1);
-
-        SearchHit json = new SearchHit(g.json);
-        assertThat(TreeModels.hitNode(TreeModels.pathWithChildren(json), json).getUserObject()).isSameAs(g.json);
     }
 
     @Test
@@ -56,9 +67,15 @@ class TreeModelsTest {
         assertThat(TreeModels.empty().getRoot()).isNull();
     }
 
+    private CatalogEntry entry(String query) {
+        return DependencyCatalog.build(g.graph, query).getFirst().entries().getFirst();
+    }
+
+    /** Preorder ohne die unsichtbare Wurzel. */
     private static List<Object> userObjects(DefaultTreeModel model) {
         DefaultMutableTreeNode root = (DefaultMutableTreeNode) model.getRoot();
         return Collections.list(root.preorderEnumeration()).stream()
+                .skip(1)
                 .map(node -> ((DefaultMutableTreeNode) node).getUserObject())
                 .toList();
     }
