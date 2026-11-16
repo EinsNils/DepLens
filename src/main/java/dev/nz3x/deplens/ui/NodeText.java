@@ -1,6 +1,7 @@
 package dev.nz3x.deplens.ui;
 
 import com.intellij.icons.AllIcons;
+import com.intellij.openapi.util.text.StringUtil;
 import com.intellij.ui.JBColor;
 import com.intellij.ui.SimpleColoredComponent;
 import com.intellij.ui.SimpleTextAttributes;
@@ -103,6 +104,14 @@ final class NodeText {
             case NICHT_PRUEFBAR -> "Nicht prüfbar: " + report.problem();
             case FEHLER -> "Prüfung fehlgeschlagen: " + report.problem();
         };
+    }
+
+    /** Beide Texte untereinander (HTML), {@code first} zuerst; ein einzelner Text bleibt unverändert. */
+    static @Nullable String combineTooltips(@Nullable String first, @Nullable String second) {
+        if (first == null || second == null) {
+            return first != null ? first : second;
+        }
+        return "<html>" + StringUtil.escapeXmlEntities(first) + "<br>" + StringUtil.escapeXmlEntities(second) + "</html>";
     }
 
     static @Nullable String tooltip(CatalogEntry entry) {

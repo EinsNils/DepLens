@@ -38,8 +38,7 @@ final class CatalogTreeCellRenderer extends ColoredTreeCellRenderer {
             SecurityReport report = reports.apply(entry);
             NodeText.appendEntry(this, entry);
             NodeText.appendSecurity(this, report);
-            String securityTooltip = NodeText.securityTooltip(report);
-            setToolTipText(securityTooltip != null ? securityTooltip : NodeText.tooltip(entry));
+            setToolTipText(NodeText.combineTooltips(NodeText.tooltip(entry), NodeText.securityTooltip(report)));
         }
     }
 
