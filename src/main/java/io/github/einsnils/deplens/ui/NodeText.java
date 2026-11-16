@@ -6,12 +6,18 @@ import com.intellij.ui.SimpleColoredComponent;
 import com.intellij.ui.SimpleTextAttributes;
 import io.github.einsnils.deplens.catalog.CatalogEntry;
 import io.github.einsnils.deplens.model.DependencyNode;
+import io.github.einsnils.deplens.security.SecurityReport;
+import java.awt.Color;
 import org.jetbrains.annotations.Nullable;
 
 /** Einheitliche Darstellung von Dependencies in Liste und Baum. */
 final class NodeText {
     private static final SimpleTextAttributes WARNING =
             new SimpleTextAttributes(SimpleTextAttributes.STYLE_PLAIN, JBColor.ORANGE);
+    private static final SimpleTextAttributes VULNERABLE =
+            new SimpleTextAttributes(SimpleTextAttributes.STYLE_BOLD, JBColor.RED);
+    private static final SimpleTextAttributes SAFE = new SimpleTextAttributes(SimpleTextAttributes.STYLE_PLAIN,
+            new JBColor(new Color(0x2E7D32), new Color(0x81C784)));
 
     private NodeText() {
     }
@@ -67,6 +73,36 @@ final class NodeText {
         if (entry.isUnresolved()) {
             target.append("  nicht auflösbar", SimpleTextAttributes.ERROR_ATTRIBUTES);
         }
+    }
+
+    /** {@code ⛔ n} bei Lücken, {@code ✔} wenn sicher, {@code ?} wenn nicht prüfbar; nichts, solange geprüft wird. */
+    static void appendSecurity(SimpleColoredComponent target, @Nullable SecurityReport report) {
+        if (report == null) {
+            return;
+        }
+        switch (report.status()) {
+            case VERWUNDBAR -> target.append("  ⛔ " + report.findings().size(), VULNERABLE);
+            case SICHER -> target.append("  ✔", SAFE);
+            case NICHT_PRUEFBAR, FEHLER -> target.append("  ?", SimpleTextAttributes.GRAYED_ATTRIBUTES);
+        }
+    }
+
+    static void appendVulnerableMarker(SimpleColoredComponent target) {
+        target.append("  ⛔", VULNERABLE);
+    }
+
+    static @Nullable String securityTooltip(@Nullable SecurityReport report) {
+        if (report == null) {
+            return null;
+        }
+        return switch (report.status()) {
+            case VERWUNDBAR -> report.findings().size() == 1
+                    ? "1 bekannte Sicherheitslücke"
+                    : report.findings().size() + " bekannte Sicherheitslücken";
+            case SICHER -> "Keine bekannten Sicherheitslücken";
+            case NICHT_PRUEFBAR -> "Nicht prüfbar: " + report.problem();
+            case FEHLER -> "Prüfung fehlgeschlagen: " + report.problem();
+        };
     }
 
     static @Nullable String tooltip(CatalogEntry entry) {

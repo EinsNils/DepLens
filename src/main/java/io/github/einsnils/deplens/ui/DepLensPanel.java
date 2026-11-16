@@ -15,9 +15,12 @@ import com.intellij.ui.DocumentAdapter;
 import com.intellij.ui.OnePixelSplitter;
 import com.intellij.ui.SearchTextField;
 import com.intellij.ui.SimpleListCellRenderer;
+import com.intellij.ui.components.ActionLink;
+import com.intellij.ui.components.JBCheckBox;
 import com.intellij.ui.components.JBLabel;
 import com.intellij.ui.components.JBLoadingPanel;
 import com.intellij.ui.components.JBScrollPane;
+import com.intellij.ui.components.JBTabbedPane;
 import com.intellij.ui.treeStructure.Tree;
 import com.intellij.util.Alarm;
 import com.intellij.util.ui.JBUI;
@@ -27,10 +30,22 @@ import io.github.einsnils.deplens.catalog.CatalogEntry;
 import io.github.einsnils.deplens.catalog.DependencyCatalog;
 import io.github.einsnils.deplens.gradle.GradleDependencySource;
 import io.github.einsnils.deplens.model.DependencyGraph;
+import io.github.einsnils.deplens.model.DependencyNode;
+import io.github.einsnils.deplens.security.Artifact;
+import io.github.einsnils.deplens.security.SecurityChecker;
+import io.github.einsnils.deplens.security.SecurityReport;
+import io.github.einsnils.deplens.security.SecurityService;
+import io.github.einsnils.deplens.settings.DepLensSettings;
 import java.awt.BorderLayout;
 import java.awt.CardLayout;
+import java.awt.FlowLayout;
+import java.awt.event.ActionListener;
+import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.Objects;
+import java.util.function.BooleanSupplier;
 import java.util.function.Consumer;
 import java.util.function.Supplier;
 import javax.swing.JButton;
@@ -49,19 +64,30 @@ public final class DepLensPanel extends JPanel implements Disposable {
     private static final Logger LOG = Logger.getInstance(DepLensPanel.class);
     private static final String CARD_CONTENT = "content";
     private static final String CARD_MESSAGE = "message";
+    private static final int SECURITY_TAB = 1;
 
+    private final Project project;
     private final GradleDependencySource source;
     private final RequestSequencer sequencer = new RequestSequencer();
+    private final RequestSequencer securitySequencer = new RequestSequencer();
+    /** Koordinate {@code g:a:v} → Bericht; nur auf dem EDT benutzt. */
+    private final Map<String, SecurityReport> reports = new HashMap<>();
     private final ComboBox<DependencyAnalyzerProject> moduleBox = new ComboBox<>();
     private final SearchTextField searchField = new SearchTextField(false);
     private final Alarm searchAlarm = new Alarm(Alarm.ThreadToUse.SWING_THREAD, this);
+    private final JBCheckBox onlyVulnerable = new JBCheckBox("Nur verwundbare");
+    private final JButton securityButton = new JButton(AllIcons.Actions.ForceRefresh);
     private final Tree catalogTree = new Tree(TreeModels.empty());
     private final Tree pathTree = new Tree(TreeModels.empty());
     private final DependencyTreeCellRenderer pathRenderer = new DependencyTreeCellRenderer();
+    private final SecurityPanel securityPanel = new SecurityPanel();
+    private final JBTabbedPane detailTabs = new JBTabbedPane();
     private final JBLabel listTitle = sectionTitle("");
     private final OnePixelSplitter contentSplitter = new OnePixelSplitter(true, 0.45f);
-    private final JComponent pathSection;
     private final JPanel toolbar = new JPanel(new BorderLayout(JBUI.scale(8), 0));
+    private final JBLabel statusLabel = new JBLabel();
+    private final ActionLink statusRetry = new ActionLink("erneut versuchen", (ActionListener) e -> startSecurityCheck(false));
+    private final JPanel statusRow = new JPanel(new FlowLayout(FlowLayout.LEFT, JBUI.scale(8), 0));
     private final CardLayout cards = new CardLayout();
     private final JPanel cardPanel = new JPanel(cards);
     private final JBLabel messageLabel = new JBLabel("", SwingConstants.CENTER);
@@ -71,11 +97,14 @@ public final class DepLensPanel extends JPanel implements Disposable {
     private boolean updatingModules;
     /** Ein automatischer Gradle-Sync pro Panel, damit ein leeres Projekt keine Endlosschleife auslöst. */
     private boolean autoSyncDone;
+    private @Nullable String securityNotice;
+    private int securityFailures;
 
     DependencyGraph graph = DependencyGraph.empty("");
 
     public DepLensPanel(Project project) {
         super(new BorderLayout());
+        this.project = project;
         source = new GradleDependencySource(project, () -> runOnEdt(this::reloadModules));
         Disposer.register(this, source);
 
@@ -95,10 +124,19 @@ public final class DepLensPanel extends JPanel implements Disposable {
         JButton refreshButton = new JButton(AllIcons.Actions.Refresh);
         refreshButton.setToolTipText("Gradle neu laden");
         refreshButton.addActionListener(e -> syncGradle());
+        securityButton.setToolTipText("Sicherheit neu prüfen");
+        securityButton.addActionListener(e -> startSecurityCheck(true));
+        onlyVulnerable.addActionListener(e -> runSearch());
+
+        JPanel actions = new JPanel(new FlowLayout(FlowLayout.RIGHT, JBUI.scale(8), 0));
+        actions.add(onlyVulnerable);
+        actions.add(refreshButton);
+        actions.add(securityButton);
 
         toolbar.setBorder(JBUI.Borders.empty(8));
         toolbar.add(moduleBox, BorderLayout.WEST);
         toolbar.add(searchField, BorderLayout.CENTER);
+        toolbar.add(actions, BorderLayout.EAST);
         searchField.addDocumentListener(new DocumentAdapter() {
             @Override
             protected void textChanged(DocumentEvent e) {
@@ -106,11 +144,18 @@ public final class DepLensPanel extends JPanel implements Disposable {
                 searchAlarm.addRequest(DepLensPanel.this::runSearch, 300);
             }
         });
-        toolbar.add(refreshButton, BorderLayout.EAST);
+
+        statusRow.setBorder(JBUI.Borders.empty(0, 10, 6, 10));
+        statusRow.add(statusLabel);
+        statusRow.add(statusRetry);
+        statusRow.setVisible(false);
+        JPanel north = new JPanel(new BorderLayout());
+        north.add(toolbar, BorderLayout.NORTH);
+        north.add(statusRow, BorderLayout.SOUTH);
 
         catalogTree.setRootVisible(false);
         catalogTree.setShowsRootHandles(true);
-        catalogTree.setCellRenderer(new CatalogTreeCellRenderer());
+        catalogTree.setCellRenderer(new CatalogTreeCellRenderer(entry -> reports.get(entry.coordinates())));
         catalogTree.setBorder(JBUI.Borders.empty(4));
         catalogTree.setRowHeight(JBUI.scale(26));
         catalogTree.addTreeSelectionListener(e -> showEntry(selectedEntry()));
@@ -121,7 +166,8 @@ public final class DepLensPanel extends JPanel implements Disposable {
         pathTree.setCellRenderer(pathRenderer);
         pathTree.setBorder(JBUI.Borders.empty(4, 8));
         ToolTipManager.sharedInstance().registerComponent(pathTree);
-        pathSection = section(sectionTitle("Abhängigkeitspfad"), new JBScrollPane(pathTree));
+        detailTabs.addTab("Abhängigkeitspfad", new JBScrollPane(pathTree));
+        detailTabs.addTab("Sicherheit", securityPanel);
 
         retryButton.addActionListener(e -> syncGradle());
         JPanel messagePanel = new JPanel(new BorderLayout());
@@ -136,13 +182,16 @@ public final class DepLensPanel extends JPanel implements Disposable {
         loadingPanel = new JBLoadingPanel(new BorderLayout(), this);
         loadingPanel.add(cardPanel, BorderLayout.CENTER);
 
-        add(toolbar, BorderLayout.NORTH);
+        add(north, BorderLayout.NORTH);
         add(loadingPanel, BorderLayout.CENTER);
 
+        ApplicationManager.getApplication().getMessageBus().connect(this)
+                .subscribe(DepLensSettings.TOPIC, (DepLensSettings.Listener) () -> runOnEdt(this::onSettingsChanged));
+        applySecurityVisibility();
         reloadModules();
     }
 
-    /** Kategorie-Liste oben; der Abhängigkeitspfad wird erst bei einer Auswahl unten eingeblendet. */
+    /** Kategorie-Liste oben; Details (Pfad, Sicherheit) werden erst bei einer Auswahl unten eingeblendet. */
     private JComponent createContent() {
         contentSplitter.setFirstComponent(section(listTitle, new JBScrollPane(catalogTree)));
         return contentSplitter;
@@ -166,20 +215,26 @@ public final class DepLensPanel extends JPanel implements Disposable {
     private void onGraphLoaded() {
         showCard(CARD_CONTENT);
         runSearch();
+        startSecurityCheck(false);
     }
 
     private void runSearch() {
         String query = searchField.getText();
         boolean searching = !query.isBlank();
         List<CatalogCategory> categories = DependencyCatalog.build(graph, query);
+        if (onlyVulnerable.isSelected()) {
+            categories = DependencyCatalog.filter(categories, this::isVulnerable);
+        }
         catalogTree.setModel(TreeModels.catalog(categories));
         listTitle.setText((searching ? "Treffer" : "Alle Dependencies")
                 + " (" + DependencyCatalog.entryCount(categories) + ")");
-        catalogTree.getEmptyText().setText(searching
-                ? "Keine Treffer für ‚" + query.strip() + "‘"
-                : "Keine Dependencies");
-        if (searching && !categories.isEmpty()) {
+        catalogTree.getEmptyText().setText(onlyVulnerable.isSelected()
+                ? "Keine verwundbaren Dependencies"
+                : searching ? "Keine Treffer für ‚" + query.strip() + "‘" : "Keine Dependencies");
+        if ((searching || onlyVulnerable.isSelected()) && !categories.isEmpty()) {
             TreeUtil.expandAll(catalogTree);
+        }
+        if (searching && !categories.isEmpty()) {
             DefaultMutableTreeNode root = (DefaultMutableTreeNode) catalogTree.getModel().getRoot();
             DefaultMutableTreeNode firstEntry = (DefaultMutableTreeNode) root.getFirstChild().getChildAt(0);
             catalogTree.setSelectionPath(new TreePath(firstEntry.getPath()));
@@ -196,7 +251,12 @@ public final class DepLensPanel extends JPanel implements Disposable {
                 : null;
     }
 
-    /** Zeigt alle Wege zur Dependency samt Children; ohne Auswahl wird der Bereich ausgeblendet. */
+    private boolean isVulnerable(CatalogEntry entry) {
+        SecurityReport report = reports.get(entry.coordinates());
+        return report != null && report.status() == SecurityReport.Status.VERWUNDBAR;
+    }
+
+    /** Zeigt Pfad und Sicherheit der Dependency; ohne Auswahl wird der Bereich ausgeblendet. */
     private void showEntry(@Nullable CatalogEntry entry) {
         if (entry == null) {
             pathTree.setModel(TreeModels.empty());
@@ -213,8 +273,161 @@ public final class DepLensPanel extends JPanel implements Disposable {
                 pathTree.expandPath(hitPath.pathByAddingChild(hitNode.getChildAt(i)));
             }
         }
-        contentSplitter.setSecondComponent(pathSection);
+        contentSplitter.setSecondComponent(detailTabs);
         pathTree.scrollPathToVisible(new TreePath(tree.hitNodes().getFirst().getPath()));
+        updateSecurityDetails(entry);
+        if (hasSecurityTab() && isVulnerable(entry)) {
+            detailTabs.setSelectedIndex(SECURITY_TAB);
+        }
+    }
+
+    private void updateSecurityDetails(CatalogEntry entry) {
+        if (!hasSecurityTab()) {
+            return;
+        }
+        SecurityReport report = reports.get(entry.coordinates());
+        securityPanel.show(entry, report);
+        detailTabs.setTitleAt(SECURITY_TAB, report != null && report.status() == SecurityReport.Status.VERWUNDBAR
+                ? "Sicherheit (" + report.findings().size() + ")"
+                : "Sicherheit");
+    }
+
+    private boolean hasSecurityTab() {
+        return detailTabs.getTabCount() > SECURITY_TAB;
+    }
+
+    private static boolean securityEnabled() {
+        return DepLensSettings.getInstance().isSecurityEnabled();
+    }
+
+    private void onSettingsChanged() {
+        SecurityService.getInstance(project).resetOssIndexRejection();
+        applySecurityVisibility();
+        if (!graph.isEmpty()) {
+            runSearch();
+            startSecurityCheck(false);
+        }
+    }
+
+    /** Blendet alle Sicherheits-Elemente ein oder aus, je nach Einstellung. */
+    private void applySecurityVisibility() {
+        boolean enabled = securityEnabled();
+        onlyVulnerable.setVisible(enabled);
+        securityButton.setVisible(enabled);
+        if (!enabled) {
+            onlyVulnerable.setSelected(false);
+            securitySequencer.next();
+            reports.clear();
+            setStatus(null, false);
+            if (hasSecurityTab()) {
+                detailTabs.removeTabAt(SECURITY_TAB);
+            }
+        } else if (!hasSecurityTab()) {
+            detailTabs.addTab("Sicherheit", securityPanel);
+        }
+        catalogTree.repaint();
+    }
+
+    /** Prüft alle Artefakte des Moduls; ältere Prüfungen werden dabei verworfen. */
+    private void startSecurityCheck(boolean forceRefresh) {
+        if (!securityEnabled() || graph.isEmpty()) {
+            return;
+        }
+        long request = securitySequencer.next();
+        reports.clear();
+        securityFailures = 0;
+        securityNotice = null;
+        List<Artifact> artifacts = new ArrayList<>();
+        for (CatalogCategory category : DependencyCatalog.build(graph, "")) {
+            for (CatalogEntry entry : category.entries()) {
+                DependencyNode node = entry.representative();
+                if (node.kind() == DependencyNode.Kind.ARTIFACT) {
+                    artifacts.add(new Artifact(node.groupId(), node.artifactId(), node.version()));
+                } else {
+                    reports.put(entry.coordinates(), SecurityReport.notCheckable("Projekt-Modul"));
+                }
+            }
+        }
+        catalogTree.repaint();
+        refreshSelectedEntry();
+        setStatus("Sicherheit wird geprüft …", false);
+        BooleanSupplier cancelled = () -> disposed || !securitySequencer.isCurrent(request);
+        SecurityService service = SecurityService.getInstance(project);
+        ApplicationManager.getApplication().executeOnPooledThread(() -> {
+            try {
+                service.check(artifacts, forceRefresh, cancelled, new SecurityChecker.Listener() {
+                    @Override
+                    public void progress(int done, int total) {
+                        onSecurityEdt(request, () -> setStatus("Sicherheit wird geprüft … " + done + "/" + total, false));
+                    }
+
+                    @Override
+                    public void reportReady(Artifact artifact, SecurityReport report) {
+                        onSecurityEdt(request, () -> applyReport(artifact, report));
+                    }
+
+                    @Override
+                    public void notice(SecurityChecker.Notice notice) {
+                        onSecurityEdt(request, () -> securityNotice = noticeText(notice));
+                    }
+                });
+                onSecurityEdt(request, this::finishSecurityCheck);
+            } catch (Throwable e) {
+                if (e instanceof ControlFlowException) {
+                    throw e;
+                }
+                LOG.warn("DepLens: Sicherheitsprüfung fehlgeschlagen", e);
+                onSecurityEdt(request, () -> setStatus("Sicherheitsprüfung fehlgeschlagen", true));
+            }
+        });
+    }
+
+    private void applyReport(Artifact artifact, SecurityReport report) {
+        reports.put(artifact.coordinates(), report);
+        if (report.status() == SecurityReport.Status.FEHLER) {
+            securityFailures++;
+        }
+        catalogTree.repaint();
+        refreshSelectedEntry();
+    }
+
+    private void finishSecurityCheck() {
+        if (securityFailures > 0) {
+            setStatus(securityFailures + (securityFailures == 1 ? " Prüfung" : " Prüfungen") + " fehlgeschlagen", true);
+        } else {
+            setStatus(securityNotice, false);
+        }
+        if (onlyVulnerable.isSelected()) {
+            runSearch();
+        }
+    }
+
+    private void refreshSelectedEntry() {
+        CatalogEntry selected = selectedEntry();
+        if (selected != null) {
+            updateSecurityDetails(selected);
+        }
+    }
+
+    private static String noticeText(SecurityChecker.Notice notice) {
+        return switch (notice) {
+            case OSS_INDEX_UNAUTHORIZED -> "OSS-Index-Token ungültig – nur OSV aktiv";
+            case OSS_INDEX_FAILED -> "OSS Index nicht erreichbar – nur OSV aktiv";
+        };
+    }
+
+    private void setStatus(@Nullable String text, boolean retry) {
+        statusLabel.setText(text == null ? "" : text);
+        statusRetry.setVisible(retry);
+        statusRow.setVisible(text != null);
+    }
+
+    private void onSecurityEdt(long request, Runnable runnable) {
+        runOnEdt(() -> {
+            if (securitySequencer.isCurrent(request)) {
+                runnable.run();
+            }
+        });
     }
 
     /** Startet einen Gradle-Sync; danach lädt {@code whenDataChanged} die Module neu. */
