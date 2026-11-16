@@ -1,7 +1,9 @@
 # DepLens
 
 IntelliJ-Plugin zum Durchsuchen von Gradle-Dependencies pro Modul.
-Für jeden Treffer zeigt DepLens, wer die Dependency reinzieht (Parents) und was sie mitbringt (Children).
+Die Dependencies erscheinen nach Hersteller gruppiert (Spring, Jackson, …). Für eine gewählte Dependency
+zeigt DepLens alle Wege, über die sie reinkommt, und was sie mitbringt. Fehlen Daten, startet DepLens
+selbst einen Gradle-Sync.
 
 ## Voraussetzungen
 

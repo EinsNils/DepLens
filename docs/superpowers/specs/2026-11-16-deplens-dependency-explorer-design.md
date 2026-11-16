@@ -63,37 +63,43 @@ Falls das später nötig ist, kann ein eigenes Gradle-Init-Script ergänzt werde
 
 ```
 ┌─ Tool Window "DepLens" ─────────────────────────────────────────┐
-│ [Modul ▼]  [🔍 Suche: jackson-databind      ]  [⟳ Refresh]     │
-│ Treffer (2)                                                     │
-│   com.fasterxml.jackson.core:jackson-databind 2.15.2 ⚠          │
-│        runtimeClasspath · via spring-boot-starter-json          │
-│   com.fasterxml.jackson.core:jackson-databind 2.15.2            │
-│        testRuntimeClasspath · direkt                            │
+│ [Modul ▼]  [🔍 Suche                        ]  [⟳ Gradle]      │
+│ Alle Dependencies (42)                                          │
+│   ▸ Apache  3                                                   │
+│   ▾ Jackson  3                                                  │
+│       jackson-core  2.19.0   com.fasterxml.jackson.core         │
+│       jackson-databind  2.19.0   com.fasterxml.jackson.core  ⚠  │
+│   ▾ Spring  5                                                   │
+│       spring-boot-starter-web  3.5.0   org.springframework.boot │
+│       springdoc-openapi-starter-webmvc-ui  2.8.0   org.springdoc│
+│   ▸ Projekt-Module  1                                           │
 │ ─────────────────────────────────────────────────────────────── │
 │ Abhängigkeitspfad          (erst sichtbar, wenn etwas gewählt)  │
 │   ▾ :app (runtimeClasspath)                                     │
 │     ▾ spring-boot-starter-web                                   │
 │       ▾ spring-boot-starter-json                                │
-│         ▾ ● jackson-databind 2.15.2   (hervorgehoben)           │
+│         ▾ ● jackson-databind 2.19.0   (hervorgehoben)           │
 │             ▸ jackson-core                                      │
-│             ▸ jackson-annotations                               │
+│   ▾ :app (testRuntimeClasspath)                                 │
+│     ▾ ● jackson-databind 2.19.0                                 │
 └─────────────────────────────────────────────────────────────────┘
 ```
 
 - **Modulauswahl:** eine ComboBox, genau ein Modul.
-- **Configurations:** alle auflösbaren Configurations des Moduls; Einträge und Pfade sind
-  immer nach Configuration beschriftet.
-- **Liste:** Leere Suche → „Alle Dependencies (N)“, alle Vorkommen des Moduls. Mit Suchbegriff →
-  „Treffer (N)“: Teilstring (case-insensitive) auf `group:artifact:version`, Debounce ~300 ms.
-  Ein Eintrag pro Vorkommen, sortiert nach Koordinate; zeigt Configuration, direkten Parent
-  (oder „direkt“) und ⚠ bei Warnings.
-- **Abhängigkeitspfad:** ein einziger Baum, nur sichtbar, wenn ein Eintrag gewählt ist. Pfad
-  Modul/Configuration → … → gewählte Dependency (aufgeklappt), darunter ihre Children
-  (2 Ebenen aufgeklappt). Beim Suchen wird der erste Treffer automatisch gewählt, bei leerer
-  Suche erst per Klick.
-- **Darstellung:** gewählte Dependency farbig hervorgehoben; Konflikte mit ⚠ und Tooltip;
-  nicht auflösbare Knoten rot; ausgelassene Knoten (`Omitted`) grau mit Hinweis „(*) siehe
-  andere Stelle“. Großzügige Abstände (Toolbar 8 px, Überschriften fett, Zeilenhöhe 26 px).
+- **Liste nach Hersteller:** jede Dependency (`group:artifact:version`) genau einmal, gruppiert nach
+  Hersteller (`VendorCategory`: Tabelle für Spring, Jackson, JUnit, Kotlin; sonst das Segment nach
+  `org.`/`com.`/`io.` … der groupId). Kategorien alphabetisch, „Projekt-Module“ zuletzt, anfangs
+  zugeklappt. Überschrift „Alle Dependencies (N)“ bzw. „Treffer (N)“.
+- **Suche:** Teilstring (case-insensitive) auf `group:artifact:version`, Debounce ~300 ms. Leere
+  Kategorien verschwinden, die übrigen klappen auf, der erste Treffer wird gewählt.
+- **Abhängigkeitspfad:** ein Baum, nur sichtbar, wenn eine Dependency gewählt ist. Alle Wege
+  Modul/Configuration → … → Dependency, zusammengeführt, darunter jeweils ihre Children.
+- **Gradle-Sync:** Findet DepLens keine Module oder keine Dependencies, startet es einmal automatisch
+  einen Gradle-Sync und lädt danach neu. Der Refresh-Button und „Gradle neu laden“ starten ebenfalls
+  einen Sync.
+- **Darstellung:** Vorkommen der gewählten Dependency farbig hervorgehoben; Konflikte mit ⚠ und
+  Tooltip; nicht auflösbare Knoten rot; ausgelassene Knoten (`Omitted`) grau mit „(*)“.
+  Großzügige Abstände (Toolbar 8 px, Überschriften fett, Zeilenhöhe 26 px).
 
 ## Komponenten
 
@@ -102,14 +108,14 @@ Falls das später nötig ist, kann ein eigenes Gradle-Init-Script ergänzt werde
 | `GradleDependencySource` | Contributor holen, Module listen, Dependencies eines Moduls laden, Sync-Listener | ja (einzige Stelle für die Analyzer-API) |
 | `DependencyGraphMapper` | `List<DependencyAnalyzerDependency>` → `DependencyGraph` | nur die Analyzer-Interfaces |
 | `DependencyGraph` | Knoten (Koordinate, Version, Configuration, Parent, Children, Status) | nein |
-| `DependencySearch` | Suche → Treffer mit Pfad zur Wurzel | nein |
+| `VendorCategory` / `DependencyCatalog` | Hersteller-Kategorie; Dependencies einmalig, gruppiert, gefiltert | nein |
 | `DepLensToolWindowFactory` | Registriert das Tool-Window | ja |
 | `DepLensPanel` | Layout, ComboBox, Suchfeld, Liste, ein-/ausblendbarer Pfad-`Tree`, Lade-/Fehlerzustände | ja |
 | `DependencyNodeRenderer` | Farben, Icons, Tooltips | ja |
 
 Datenfluss: Modul wählen → `GradleDependencySource` lädt im Hintergrund
 (`ReadAction.nonBlocking` bzw. Background-Task) → `DependencyGraphMapper` → `DependencyGraph`
-→ Suche → Liste → Auswahl → Abhängigkeitspfad.
+→ `DependencyCatalog` (Suche, Kategorien) → Auswahl → Abhängigkeitspfad.
 
 ## Fehlerbehandlung
 
