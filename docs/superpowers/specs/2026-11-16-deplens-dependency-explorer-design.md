@@ -64,33 +64,36 @@ Falls das später nötig ist, kann ein eigenes Gradle-Init-Script ergänzt werde
 ```
 ┌─ Tool Window "DepLens" ─────────────────────────────────────────┐
 │ [Modul ▼]  [🔍 Suche: jackson-databind      ]  [⟳ Refresh]     │
-│ ┌ Trefferliste ─────────────────────────────────────────────┐ │
-│ │ com.fasterxml.jackson.core:jackson-databind:2.15.2         │ │
-│ │   runtimeClasspath · via spring-boot-starter-json  ⚠       │ │
-│ │   testRuntimeClasspath · direkt                            │ │
-│ └────────────────────────────────────────────────────────────┘ │
-│ ┌ Parents (bis zum Modul) ───┐ ┌ Children ──────────────────┐ │
-│ │ ▾ :app (runtimeClasspath)  │ │ ▾ jackson-databind 2.15.2  │ │
-│ │   ▾ spring-boot-starter-web│ │   ├ jackson-annotations    │ │
-│ │     ▾ …-starter-json       │ │   └ jackson-core           │ │
-│ │       ● jackson-databind   │ │                            │ │
-│ └────────────────────────────┘ └────────────────────────────┘ │
-└────────────────────────────────────────────────────────────────┘
+│ Treffer (2)                                                     │
+│   com.fasterxml.jackson.core:jackson-databind 2.15.2 ⚠          │
+│        runtimeClasspath · via spring-boot-starter-json          │
+│   com.fasterxml.jackson.core:jackson-databind 2.15.2            │
+│        testRuntimeClasspath · direkt                            │
+│ ─────────────────────────────────────────────────────────────── │
+│ Abhängigkeitspfad          (erst sichtbar, wenn etwas gewählt)  │
+│   ▾ :app (runtimeClasspath)                                     │
+│     ▾ spring-boot-starter-web                                   │
+│       ▾ spring-boot-starter-json                                │
+│         ▾ ● jackson-databind 2.15.2   (hervorgehoben)           │
+│             ▸ jackson-core                                      │
+│             ▸ jackson-annotations                               │
+└─────────────────────────────────────────────────────────────────┘
 ```
 
 - **Modulauswahl:** eine ComboBox, genau ein Modul.
-- **Configurations:** alle auflösbaren Configurations des Moduls; Treffer und Pfade sind
-  immer nach Configuration gruppiert bzw. beschriftet.
-- **Suche:** Teilstring (case-insensitive) auf `group:artifact:version`, mit kurzer
-  Verzögerung beim Tippen (Debounce ~300 ms). Leere Suche → keine Treffer, Bäume leer.
-- **Trefferliste:** ein Eintrag pro Vorkommen (Knoten), gruppiert nach Koordinate.
-  Zeigt Configuration, direkten Parent (oder „direkt“) und ⚠ bei Warnings.
-- **Geteilte Ansicht** (Klick auf einen Treffer):
-  - links: Pfad Modul/Configuration → … → Treffer (aufgeklappt),
-  - rechts: Unterbaum des Treffers (Children, rekursiv).
-- **Darstellung:** Treffer farbig hervorgehoben; Konflikte mit ⚠ und Tooltip mit der
-  Gradle-Begründung; nicht auflösbare Knoten rot; ausgelassene Knoten (`Omitted`) grau mit
-  Hinweis „(*) siehe andere Stelle“.
+- **Configurations:** alle auflösbaren Configurations des Moduls; Einträge und Pfade sind
+  immer nach Configuration beschriftet.
+- **Liste:** Leere Suche → „Alle Dependencies (N)“, alle Vorkommen des Moduls. Mit Suchbegriff →
+  „Treffer (N)“: Teilstring (case-insensitive) auf `group:artifact:version`, Debounce ~300 ms.
+  Ein Eintrag pro Vorkommen, sortiert nach Koordinate; zeigt Configuration, direkten Parent
+  (oder „direkt“) und ⚠ bei Warnings.
+- **Abhängigkeitspfad:** ein einziger Baum, nur sichtbar, wenn ein Eintrag gewählt ist. Pfad
+  Modul/Configuration → … → gewählte Dependency (aufgeklappt), darunter ihre Children
+  (2 Ebenen aufgeklappt). Beim Suchen wird der erste Treffer automatisch gewählt, bei leerer
+  Suche erst per Klick.
+- **Darstellung:** gewählte Dependency farbig hervorgehoben; Konflikte mit ⚠ und Tooltip;
+  nicht auflösbare Knoten rot; ausgelassene Knoten (`Omitted`) grau mit Hinweis „(*) siehe
+  andere Stelle“. Großzügige Abstände (Toolbar 8 px, Überschriften fett, Zeilenhöhe 26 px).
 
 ## Komponenten
 
@@ -101,12 +104,12 @@ Falls das später nötig ist, kann ein eigenes Gradle-Init-Script ergänzt werde
 | `DependencyGraph` | Knoten (Koordinate, Version, Configuration, Parent, Children, Status) | nein |
 | `DependencySearch` | Suche → Treffer mit Pfad zur Wurzel | nein |
 | `DepLensToolWindowFactory` | Registriert das Tool-Window | ja |
-| `DepLensPanel` | Layout, ComboBox, Suchfeld, Liste, `Splitter` mit zwei `Tree`s, Lade-/Fehlerzustände | ja |
+| `DepLensPanel` | Layout, ComboBox, Suchfeld, Liste, ein-/ausblendbarer Pfad-`Tree`, Lade-/Fehlerzustände | ja |
 | `DependencyNodeRenderer` | Farben, Icons, Tooltips | ja |
 
 Datenfluss: Modul wählen → `GradleDependencySource` lädt im Hintergrund
 (`ReadAction.nonBlocking` bzw. Background-Task) → `DependencyGraphMapper` → `DependencyGraph`
-→ Suche → Trefferliste → Auswahl → Parents-/Children-Baum.
+→ Suche → Liste → Auswahl → Abhängigkeitspfad.
 
 ## Fehlerbehandlung
 
