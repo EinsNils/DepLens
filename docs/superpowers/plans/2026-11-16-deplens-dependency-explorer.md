@@ -17,7 +17,7 @@
 - Bundled Plugin `com.intellij.gradle` als einzige Plugin-Abhängigkeit.
 - Nur die Analyzer-API aus `com.intellij.openapi.externalSystem.dependency.analyzer` verwenden; nur `GradleDependencySource` und `DependencyGraphMapper` dürfen sie importieren.
 - `getDependencies(...)` nie auf dem EDT aufrufen.
-- Paket-Wurzel: `io.github.einsnils.deplens`; Plugin-ID `io.github.einsnils.deplens`.
+- Paket-Wurzel: `dev.nz3x.deplens`; Plugin-ID `dev.nz3x.deplens`.
 - Quellcode-Encoding UTF-8 (UI-Texte enthalten `·`, `⚠`, Umlaute).
 - UI-Texte auf Deutsch.
 - Git: ein Feature-Branch `feat/dependency-explorer`, kleine Commits mit kurzen Nachrichten, nach jedem Task pushen. Jede Commit-Nachricht endet mit
@@ -40,7 +40,7 @@ settings.gradle.kts                     Projektname
 build.gradle.kts                        Plugin-Build
 gradle/wrapper/*, gradlew, gradlew.bat  Gradle Wrapper 9.9.1
 src/main/resources/META-INF/plugin.xml  Plugin-Deskriptor + Tool-Window
-src/main/java/io/github/einsnils/deplens/
+src/main/java/dev/nz3x/deplens/
   model/DependencyNode.java             Ein Vorkommen (Modul oder Artefakt) in einer Configuration
   model/DependencyGraph.java            Wurzeln (eine pro Configuration) + Traversierung
   search/SearchHit.java                 Ein Treffer + Pfad + Ortsbeschreibung
@@ -54,7 +54,7 @@ src/main/java/io/github/einsnils/deplens/
   ui/SearchHitCellRenderer.java         Renderer für die Trefferliste
   ui/DepLensPanel.java                  Gesamtes Tool-Window-Layout + Abläufe
   ui/DepLensToolWindowFactory.java      Registriert das Panel
-src/test/java/io/github/einsnils/deplens/
+src/test/java/dev/nz3x/deplens/
   model/TestGraphs.java                 Gemeinsamer Test-Graph
   model/DependencyGraphTest.java
   search/DependencySearchTest.java
@@ -72,9 +72,9 @@ README.md
 
 **Files:**
 - Create: `settings.gradle.kts`, `build.gradle.kts`, Gradle Wrapper, `src/main/resources/META-INF/plugin.xml`
-- Create: `src/main/java/io/github/einsnils/deplens/model/DependencyNode.java`
-- Create: `src/main/java/io/github/einsnils/deplens/model/DependencyGraph.java`
-- Test: `src/test/java/io/github/einsnils/deplens/model/TestGraphs.java`, `src/test/java/io/github/einsnils/deplens/model/DependencyGraphTest.java`
+- Create: `src/main/java/dev/nz3x/deplens/model/DependencyNode.java`
+- Create: `src/main/java/dev/nz3x/deplens/model/DependencyGraph.java`
+- Test: `src/test/java/dev/nz3x/deplens/model/TestGraphs.java`, `src/test/java/dev/nz3x/deplens/model/DependencyGraphTest.java`
 
 **Interfaces:**
 - Produces:
@@ -117,7 +117,7 @@ plugins {
     id("org.jetbrains.intellij.platform") version "2.20.1"
 }
 
-group = "io.github.einsnils"
+group = "dev.nz3x"
 version = "0.1.0"
 
 java {
@@ -173,7 +173,7 @@ Falls `intellijIdea(...)` in dieser Plugin-Version nicht aufgelöst wird, stattd
 
 ```xml
 <idea-plugin>
-    <id>io.github.einsnils.deplens</id>
+    <id>dev.nz3x.deplens</id>
     <name>DepLens</name>
     <vendor>EinsNils</vendor>
     <description><![CDATA[
@@ -188,10 +188,10 @@ Falls `intellijIdea(...)` in dieser Plugin-Version nicht aufgelöst wird, stattd
 
 - [ ] **Step 6: Test-Fixture `TestGraphs` schreiben**
 
-`src/test/java/io/github/einsnils/deplens/model/TestGraphs.java`:
+`src/test/java/dev/nz3x/deplens/model/TestGraphs.java`:
 
 ```java
-package io.github.einsnils.deplens.model;
+package dev.nz3x.deplens.model;
 
 import java.util.List;
 
@@ -244,12 +244,12 @@ public final class TestGraphs {
 
 - [ ] **Step 7: Failing Test `DependencyGraphTest` schreiben**
 
-`src/test/java/io/github/einsnils/deplens/model/DependencyGraphTest.java`:
+`src/test/java/dev/nz3x/deplens/model/DependencyGraphTest.java`:
 
 ```java
-package io.github.einsnils.deplens.model;
+package dev.nz3x.deplens.model;
 
-import static io.github.einsnils.deplens.model.TestGraphs.JACKSON;
+import static dev.nz3x.deplens.model.TestGraphs.JACKSON;
 import static org.assertj.core.api.Assertions.assertThat;
 
 import org.junit.jupiter.api.Test;
@@ -324,15 +324,15 @@ class DependencyGraphTest {
 
 - [ ] **Step 8: Test ausführen, er muss fehlschlagen**
 
-Run: `./gradlew test --tests "io.github.einsnils.deplens.model.*"`
+Run: `./gradlew test --tests "dev.nz3x.deplens.model.*"`
 Expected: FAIL – Kompilierfehler `cannot find symbol: class DependencyNode`.
 
 - [ ] **Step 9: `DependencyNode` implementieren**
 
-`src/main/java/io/github/einsnils/deplens/model/DependencyNode.java`:
+`src/main/java/dev/nz3x/deplens/model/DependencyNode.java`:
 
 ```java
-package io.github.einsnils.deplens.model;
+package dev.nz3x.deplens.model;
 
 import java.util.ArrayDeque;
 import java.util.ArrayList;
@@ -421,10 +421,10 @@ public final class DependencyNode {
 
 - [ ] **Step 10: `DependencyGraph` implementieren**
 
-`src/main/java/io/github/einsnils/deplens/model/DependencyGraph.java`:
+`src/main/java/dev/nz3x/deplens/model/DependencyGraph.java`:
 
 ```java
-package io.github.einsnils.deplens.model;
+package dev.nz3x.deplens.model;
 
 import java.util.ArrayDeque;
 import java.util.ArrayList;
@@ -470,7 +470,7 @@ public final class DependencyGraph {
 
 - [ ] **Step 11: Tests ausführen, sie müssen grün sein**
 
-Run: `./gradlew test --tests "io.github.einsnils.deplens.model.*"`
+Run: `./gradlew test --tests "dev.nz3x.deplens.model.*"`
 Expected: PASS (8 Tests). Beim ersten Lauf lädt Gradle die IDE (~1–2 GB); das dauert.
 
 - [ ] **Step 12: Commit und Push**
@@ -488,9 +488,9 @@ git push -u origin feat/dependency-explorer
 ### Task 2: Suche
 
 **Files:**
-- Create: `src/main/java/io/github/einsnils/deplens/search/SearchHit.java`
-- Create: `src/main/java/io/github/einsnils/deplens/search/DependencySearch.java`
-- Test: `src/test/java/io/github/einsnils/deplens/search/DependencySearchTest.java`
+- Create: `src/main/java/dev/nz3x/deplens/search/SearchHit.java`
+- Create: `src/main/java/dev/nz3x/deplens/search/DependencySearch.java`
+- Test: `src/test/java/dev/nz3x/deplens/search/DependencySearchTest.java`
 
 **Interfaces:**
 - Consumes: `DependencyGraph.allNodes()`, `DependencyNode.coordinates()/configuration()/parent()/isRoot()/name()/pathFromRoot()`, `TestGraphs`.
@@ -500,14 +500,14 @@ git push -u origin feat/dependency-explorer
 
 - [ ] **Step 1: Failing Test schreiben**
 
-`src/test/java/io/github/einsnils/deplens/search/DependencySearchTest.java`:
+`src/test/java/dev/nz3x/deplens/search/DependencySearchTest.java`:
 
 ```java
-package io.github.einsnils.deplens.search;
+package dev.nz3x.deplens.search;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
-import io.github.einsnils.deplens.model.TestGraphs;
+import dev.nz3x.deplens.model.TestGraphs;
 import org.junit.jupiter.api.Test;
 
 class DependencySearchTest {
@@ -572,15 +572,15 @@ class DependencySearchTest {
 
 - [ ] **Step 2: Test ausführen, er muss fehlschlagen**
 
-Run: `./gradlew test --tests "io.github.einsnils.deplens.search.*"`
+Run: `./gradlew test --tests "dev.nz3x.deplens.search.*"`
 Expected: FAIL – `cannot find symbol: class DependencySearch`.
 
 - [ ] **Step 3: `SearchHit` implementieren**
 
 ```java
-package io.github.einsnils.deplens.search;
+package dev.nz3x.deplens.search;
 
-import io.github.einsnils.deplens.model.DependencyNode;
+import dev.nz3x.deplens.model.DependencyNode;
 import java.util.List;
 
 /** Ein Vorkommen der gesuchten Dependency. */
@@ -602,9 +602,9 @@ public record SearchHit(DependencyNode node) {
 - [ ] **Step 4: `DependencySearch` implementieren**
 
 ```java
-package io.github.einsnils.deplens.search;
+package dev.nz3x.deplens.search;
 
-import io.github.einsnils.deplens.model.DependencyGraph;
+import dev.nz3x.deplens.model.DependencyGraph;
 import java.util.Comparator;
 import java.util.List;
 import java.util.Locale;
@@ -637,7 +637,7 @@ public final class DependencySearch {
 
 - [ ] **Step 5: Tests ausführen, sie müssen grün sein**
 
-Run: `./gradlew test --tests "io.github.einsnils.deplens.search.*"`
+Run: `./gradlew test --tests "dev.nz3x.deplens.search.*"`
 Expected: PASS (8 Tests).
 
 - [ ] **Step 6: Commit und Push**
@@ -655,8 +655,8 @@ git push
 ### Task 3: Mapping von IntelliJs Analyzer-API auf das Modell
 
 **Files:**
-- Create: `src/main/java/io/github/einsnils/deplens/gradle/DependencyGraphMapper.java`
-- Test: `src/test/java/io/github/einsnils/deplens/gradle/Fakes.java`, `src/test/java/io/github/einsnils/deplens/gradle/DependencyGraphMapperTest.java`
+- Create: `src/main/java/dev/nz3x/deplens/gradle/DependencyGraphMapper.java`
+- Test: `src/test/java/dev/nz3x/deplens/gradle/Fakes.java`, `src/test/java/dev/nz3x/deplens/gradle/DependencyGraphMapperTest.java`
 
 **Interfaces:**
 - Consumes: `DependencyNode.module/artifact/markOmitted/markUnresolved/markConflict`, `DependencyGraph`.
@@ -667,10 +667,10 @@ Hintergrund: IntelliJs Gradle-Contributor meldet nicht auflösbare Dependencies 
 
 - [ ] **Step 1: Fakes schreiben**
 
-`src/test/java/io/github/einsnils/deplens/gradle/Fakes.java`:
+`src/test/java/dev/nz3x/deplens/gradle/Fakes.java`:
 
 ```java
-package io.github.einsnils.deplens.gradle;
+package dev.nz3x.deplens.gradle;
 
 import com.intellij.openapi.externalSystem.dependency.analyzer.DependencyAnalyzerDependency;
 import com.intellij.openapi.util.UserDataHolderBase;
@@ -759,22 +759,22 @@ final class Fakes {
 
 - [ ] **Step 2: Failing Test schreiben**
 
-`src/test/java/io/github/einsnils/deplens/gradle/DependencyGraphMapperTest.java`:
+`src/test/java/dev/nz3x/deplens/gradle/DependencyGraphMapperTest.java`:
 
 ```java
-package io.github.einsnils.deplens.gradle;
+package dev.nz3x.deplens.gradle;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
-import io.github.einsnils.deplens.gradle.Fakes.FakeArtifact;
-import io.github.einsnils.deplens.gradle.Fakes.FakeDep;
-import io.github.einsnils.deplens.gradle.Fakes.FakeModule;
-import io.github.einsnils.deplens.gradle.Fakes.FakeOmitted;
-import io.github.einsnils.deplens.gradle.Fakes.FakeOtherData;
-import io.github.einsnils.deplens.gradle.Fakes.FakeScope;
-import io.github.einsnils.deplens.gradle.Fakes.FakeWarning;
-import io.github.einsnils.deplens.model.DependencyGraph;
-import io.github.einsnils.deplens.model.DependencyNode;
+import dev.nz3x.deplens.gradle.Fakes.FakeArtifact;
+import dev.nz3x.deplens.gradle.Fakes.FakeDep;
+import dev.nz3x.deplens.gradle.Fakes.FakeModule;
+import dev.nz3x.deplens.gradle.Fakes.FakeOmitted;
+import dev.nz3x.deplens.gradle.Fakes.FakeOtherData;
+import dev.nz3x.deplens.gradle.Fakes.FakeScope;
+import dev.nz3x.deplens.gradle.Fakes.FakeWarning;
+import dev.nz3x.deplens.model.DependencyGraph;
+import dev.nz3x.deplens.model.DependencyNode;
 import java.util.List;
 import org.junit.jupiter.api.Test;
 
@@ -874,17 +874,17 @@ class DependencyGraphMapperTest {
 
 - [ ] **Step 3: Test ausführen, er muss fehlschlagen**
 
-Run: `./gradlew test --tests "io.github.einsnils.deplens.gradle.*"`
+Run: `./gradlew test --tests "dev.nz3x.deplens.gradle.*"`
 Expected: FAIL – `cannot find symbol: class DependencyGraphMapper`.
 
 - [ ] **Step 4: `DependencyGraphMapper` implementieren**
 
 ```java
-package io.github.einsnils.deplens.gradle;
+package dev.nz3x.deplens.gradle;
 
 import com.intellij.openapi.externalSystem.dependency.analyzer.DependencyAnalyzerDependency;
-import io.github.einsnils.deplens.model.DependencyGraph;
-import io.github.einsnils.deplens.model.DependencyNode;
+import dev.nz3x.deplens.model.DependencyGraph;
+import dev.nz3x.deplens.model.DependencyNode;
 import java.util.ArrayList;
 import java.util.IdentityHashMap;
 import java.util.List;
@@ -956,7 +956,7 @@ public final class DependencyGraphMapper {
 
 - [ ] **Step 5: Tests ausführen, sie müssen grün sein**
 
-Run: `./gradlew test --tests "io.github.einsnils.deplens.gradle.*"`
+Run: `./gradlew test --tests "dev.nz3x.deplens.gradle.*"`
 Expected: PASS (7 Tests).
 
 - [ ] **Step 6: Commit und Push**
@@ -974,9 +974,9 @@ git push
 ### Task 4: UI-Logik ohne IDE (TreeModels, RequestSequencer)
 
 **Files:**
-- Create: `src/main/java/io/github/einsnils/deplens/ui/TreeModels.java`
-- Create: `src/main/java/io/github/einsnils/deplens/ui/RequestSequencer.java`
-- Test: `src/test/java/io/github/einsnils/deplens/ui/TreeModelsTest.java`, `src/test/java/io/github/einsnils/deplens/ui/RequestSequencerTest.java`
+- Create: `src/main/java/dev/nz3x/deplens/ui/TreeModels.java`
+- Create: `src/main/java/dev/nz3x/deplens/ui/RequestSequencer.java`
+- Test: `src/test/java/dev/nz3x/deplens/ui/TreeModelsTest.java`, `src/test/java/dev/nz3x/deplens/ui/RequestSequencerTest.java`
 
 **Interfaces:**
 - Consumes: `SearchHit.path()`, `DependencyNode.children()`, `TestGraphs`.
@@ -988,15 +988,15 @@ git push
 
 - [ ] **Step 1: Failing Tests schreiben**
 
-`src/test/java/io/github/einsnils/deplens/ui/TreeModelsTest.java`:
+`src/test/java/dev/nz3x/deplens/ui/TreeModelsTest.java`:
 
 ```java
-package io.github.einsnils.deplens.ui;
+package dev.nz3x.deplens.ui;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
-import io.github.einsnils.deplens.model.TestGraphs;
-import io.github.einsnils.deplens.search.SearchHit;
+import dev.nz3x.deplens.model.TestGraphs;
+import dev.nz3x.deplens.search.SearchHit;
 import java.util.Collections;
 import java.util.List;
 import javax.swing.tree.DefaultMutableTreeNode;
@@ -1044,10 +1044,10 @@ class TreeModelsTest {
 }
 ```
 
-`src/test/java/io/github/einsnils/deplens/ui/RequestSequencerTest.java`:
+`src/test/java/dev/nz3x/deplens/ui/RequestSequencerTest.java`:
 
 ```java
-package io.github.einsnils.deplens.ui;
+package dev.nz3x.deplens.ui;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
@@ -1071,16 +1071,16 @@ class RequestSequencerTest {
 
 - [ ] **Step 2: Tests ausführen, sie müssen fehlschlagen**
 
-Run: `./gradlew test --tests "io.github.einsnils.deplens.ui.*"`
+Run: `./gradlew test --tests "dev.nz3x.deplens.ui.*"`
 Expected: FAIL – `cannot find symbol: class TreeModels`.
 
 - [ ] **Step 3: `TreeModels` implementieren**
 
 ```java
-package io.github.einsnils.deplens.ui;
+package dev.nz3x.deplens.ui;
 
-import io.github.einsnils.deplens.model.DependencyNode;
-import io.github.einsnils.deplens.search.SearchHit;
+import dev.nz3x.deplens.model.DependencyNode;
+import dev.nz3x.deplens.search.SearchHit;
 import javax.swing.tree.DefaultMutableTreeNode;
 import javax.swing.tree.DefaultTreeModel;
 
@@ -1125,7 +1125,7 @@ public final class TreeModels {
 - [ ] **Step 4: `RequestSequencer` implementieren**
 
 ```java
-package io.github.einsnils.deplens.ui;
+package dev.nz3x.deplens.ui;
 
 import java.util.concurrent.atomic.AtomicLong;
 
@@ -1165,9 +1165,9 @@ git push
 Ziel dieses Tasks: Das Tool-Window erscheint, listet die Gradle-Module, lädt das gewählte Modul im Hintergrund und zeigt Lade-, Leer- und Fehlerzustände. Suche, Trefferliste und Bäume kommen in Task 6.
 
 **Files:**
-- Create: `src/main/java/io/github/einsnils/deplens/gradle/GradleDependencySource.java`
-- Create: `src/main/java/io/github/einsnils/deplens/ui/DepLensPanel.java`
-- Create: `src/main/java/io/github/einsnils/deplens/ui/DepLensToolWindowFactory.java`
+- Create: `src/main/java/dev/nz3x/deplens/gradle/GradleDependencySource.java`
+- Create: `src/main/java/dev/nz3x/deplens/ui/DepLensPanel.java`
+- Create: `src/main/java/dev/nz3x/deplens/ui/DepLensToolWindowFactory.java`
 - Modify: `src/main/resources/META-INF/plugin.xml`
 
 **Interfaces:**
@@ -1180,7 +1180,7 @@ Ziel dieses Tasks: Das Tool-Window erscheint, listet die Gradle-Module, lädt da
 - [ ] **Step 1: `GradleDependencySource` schreiben**
 
 ```java
-package io.github.einsnils.deplens.gradle;
+package dev.nz3x.deplens.gradle;
 
 import com.intellij.openapi.Disposable;
 import com.intellij.openapi.externalSystem.dependency.analyzer.DependencyAnalyzerContributor;
@@ -1189,7 +1189,7 @@ import com.intellij.openapi.externalSystem.dependency.analyzer.DependencyAnalyze
 import com.intellij.openapi.externalSystem.util.ExternalSystemBundle;
 import com.intellij.openapi.project.Project;
 import com.intellij.openapi.util.Disposer;
-import io.github.einsnils.deplens.model.DependencyGraph;
+import dev.nz3x.deplens.model.DependencyGraph;
 import java.util.List;
 import kotlin.Unit;
 import org.jetbrains.annotations.Nullable;
@@ -1263,7 +1263,7 @@ Expected: BUILD SUCCESSFUL. Falls `ExternalSystemBundle.message` nicht sichtbar 
 - [ ] **Step 3: `DepLensPanel` (Grundgerüst) schreiben**
 
 ```java
-package io.github.einsnils.deplens.ui;
+package dev.nz3x.deplens.ui;
 
 import com.intellij.icons.AllIcons;
 import com.intellij.openapi.Disposable;
@@ -1279,8 +1279,8 @@ import com.intellij.ui.SimpleListCellRenderer;
 import com.intellij.ui.components.JBLabel;
 import com.intellij.ui.components.JBLoadingPanel;
 import com.intellij.util.ui.JBUI;
-import io.github.einsnils.deplens.gradle.GradleDependencySource;
-import io.github.einsnils.deplens.model.DependencyGraph;
+import dev.nz3x.deplens.gradle.GradleDependencySource;
+import dev.nz3x.deplens.model.DependencyGraph;
 import java.awt.BorderLayout;
 import java.awt.CardLayout;
 import java.util.Objects;
@@ -1452,7 +1452,7 @@ Hinweis: `ProcessCanceledException` darf nicht geloggt werden (IntelliJ meldet d
 - [ ] **Step 4: `DepLensToolWindowFactory` schreiben**
 
 ```java
-package io.github.einsnils.deplens.ui;
+package dev.nz3x.deplens.ui;
 
 import com.intellij.openapi.project.DumbAware;
 import com.intellij.openapi.project.Project;
@@ -1481,7 +1481,7 @@ public final class DepLensToolWindowFactory implements ToolWindowFactory, DumbAw
         <toolWindow id="DepLens"
                     anchor="right"
                     icon="AllIcons.Nodes.PpLib"
-                    factoryClass="io.github.einsnils.deplens.ui.DepLensToolWindowFactory"/>
+                    factoryClass="dev.nz3x.deplens.ui.DepLensToolWindowFactory"/>
     </extensions>
 ```
 
@@ -1568,10 +1568,10 @@ git push
 ### Task 6: Suche, Trefferliste und geteilte Baumansicht
 
 **Files:**
-- Create: `src/main/java/io/github/einsnils/deplens/ui/NodeText.java`
-- Create: `src/main/java/io/github/einsnils/deplens/ui/DependencyTreeCellRenderer.java`
-- Create: `src/main/java/io/github/einsnils/deplens/ui/SearchHitCellRenderer.java`
-- Modify: `src/main/java/io/github/einsnils/deplens/ui/DepLensPanel.java` (`createContent()`, `onGraphLoaded()`, Toolbar)
+- Create: `src/main/java/dev/nz3x/deplens/ui/NodeText.java`
+- Create: `src/main/java/dev/nz3x/deplens/ui/DependencyTreeCellRenderer.java`
+- Create: `src/main/java/dev/nz3x/deplens/ui/SearchHitCellRenderer.java`
+- Modify: `src/main/java/dev/nz3x/deplens/ui/DepLensPanel.java` (`createContent()`, `onGraphLoaded()`, Toolbar)
 
 **Interfaces:**
 - Consumes: `DependencySearch.search`, `SearchHit`, `TreeModels.parentPath/children/empty`, `DependencyNode`-Getter, `DepLensPanel.graph`.
@@ -1580,13 +1580,13 @@ git push
 - [ ] **Step 1: `NodeText` schreiben**
 
 ```java
-package io.github.einsnils.deplens.ui;
+package dev.nz3x.deplens.ui;
 
 import com.intellij.icons.AllIcons;
 import com.intellij.ui.JBColor;
 import com.intellij.ui.SimpleColoredComponent;
 import com.intellij.ui.SimpleTextAttributes;
-import io.github.einsnils.deplens.model.DependencyNode;
+import dev.nz3x.deplens.model.DependencyNode;
 import org.jetbrains.annotations.Nullable;
 
 /** Einheitliche Darstellung eines Knotens in Liste und Bäumen. */
@@ -1651,10 +1651,10 @@ final class NodeText {
 `DependencyTreeCellRenderer.java`:
 
 ```java
-package io.github.einsnils.deplens.ui;
+package dev.nz3x.deplens.ui;
 
 import com.intellij.ui.ColoredTreeCellRenderer;
-import io.github.einsnils.deplens.model.DependencyNode;
+import dev.nz3x.deplens.model.DependencyNode;
 import javax.swing.JTree;
 import javax.swing.tree.DefaultMutableTreeNode;
 import org.jetbrains.annotations.NotNull;
@@ -1682,11 +1682,11 @@ final class DependencyTreeCellRenderer extends ColoredTreeCellRenderer {
 `SearchHitCellRenderer.java`:
 
 ```java
-package io.github.einsnils.deplens.ui;
+package dev.nz3x.deplens.ui;
 
 import com.intellij.ui.ColoredListCellRenderer;
 import com.intellij.ui.SimpleTextAttributes;
-import io.github.einsnils.deplens.search.SearchHit;
+import dev.nz3x.deplens.search.SearchHit;
 import javax.swing.JList;
 import org.jetbrains.annotations.NotNull;
 
@@ -1716,8 +1716,8 @@ import com.intellij.ui.components.JBScrollPane;
 import com.intellij.ui.treeStructure.Tree;
 import com.intellij.util.Alarm;
 import com.intellij.util.ui.tree.TreeUtil;
-import io.github.einsnils.deplens.search.DependencySearch;
-import io.github.einsnils.deplens.search.SearchHit;
+import dev.nz3x.deplens.search.DependencySearch;
+import dev.nz3x.deplens.search.SearchHit;
 import java.util.List;
 import javax.swing.event.DocumentEvent;
 ```

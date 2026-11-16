@@ -73,7 +73,7 @@ die größer als die aktuelle Version sind und von keiner OSV-Lücke betroffen s
 
 ## Komponenten
 
-Paket `io.github.einsnils.deplens.security`.
+Paket `dev.nz3x.deplens.security`.
 
 | Komponente | Verantwortung | Kennt IntelliJ? |
 |---|---|---|
@@ -91,7 +91,7 @@ Paket `io.github.einsnils.deplens.security`.
 | `SecurityService` | Projekt-Service; verbindet `SecurityChecker` mit Einstellungen, Hintergrund-Threads und UI | ja |
 | `DepLensSettings` + `DepLensConfigurable` | Prüfung an/aus, Cache-Dauer (h), OSS-Index-Benutzer; Token in `PasswordSafe` | ja |
 
-UI-Erweiterungen in `io.github.einsnils.deplens.ui`:
+UI-Erweiterungen in `dev.nz3x.deplens.ui`:
 - `CatalogTreeCellRenderer` / `NodeText`: Status-Markierung je Eintrag und Kategorie.
 - `SecurityPanel`: Inhalt des Tabs „Sicherheit“.
 - `DepLensPanel`: Reload-Icon, Statuszeile, Filter „Nur verwundbare“, Tabs unten.

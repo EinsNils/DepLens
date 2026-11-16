@@ -3,7 +3,7 @@ plugins {
     id("org.jetbrains.intellij.platform") version "2.20.1"
 }
 
-group = "io.github.einsnils"
+group = "dev.nz3x"
 version = "0.1.0"
 
 java {

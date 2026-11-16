@@ -4,7 +4,7 @@
 
 **Goal:** Für jede Dependency im DepLens-Tool-Window bekannte Sicherheitslücken anzeigen und zwei sichere Upgrade-Versionen vorschlagen (nächste mit gleicher Major, neueste).
 
-**Architecture:** Neues Paket `io.github.einsnils.deplens.security` mit reiner, netzfreier Logik (Versionen, OSV-Bereichsauswertung, Upgrade-Wahl, Parser, Orchestrierung über Schnittstellen `SecurityClient`/`ResponseCache`). Dünne IntelliJ-Schicht: `HttpSecurityClient` (IntelliJ `HttpRequests`), `FileResponseCache` (Systemordner), `SecurityService` (Projekt-Service), `DepLensSettings` + Einstellungsseite. Die UI liest Berichte aus einer Map und rendert Markierungen, einen Filter und einen Tab „Sicherheit“.
+**Architecture:** Neues Paket `dev.nz3x.deplens.security` mit reiner, netzfreier Logik (Versionen, OSV-Bereichsauswertung, Upgrade-Wahl, Parser, Orchestrierung über Schnittstellen `SecurityClient`/`ResponseCache`). Dünne IntelliJ-Schicht: `HttpSecurityClient` (IntelliJ `HttpRequests`), `FileResponseCache` (Systemordner), `SecurityService` (Projekt-Service), `DepLensSettings` + Einstellungsseite. Die UI liest Berichte aus einer Map und rendert Markierungen, einen Filter und einen Tab „Sicherheit“.
 
 **Tech Stack:** Java 25, IntelliJ Platform 2026.2.3 (Gradle-Plugin 2.20.1), `org.apache.maven:maven-artifact:3.10.1` (`ComparableVersion`), Gson aus der Plattform, JUnit 6.1.3, AssertJ 3.27.7.
 
@@ -13,7 +13,7 @@
 ## Global Constraints
 
 - Ziel-IDE IntelliJ IDEA 2026.2, `sinceBuild = "262"`, Java-Toolchain 25, Quellcode UTF-8, UI-Texte deutsch.
-- Paket-Wurzel `io.github.einsnils.deplens`; neue Pakete `security` und `settings`.
+- Paket-Wurzel `dev.nz3x.deplens`; neue Pakete `security` und `settings`.
 - Tests laufen ohne Netz. Netzzugriff nur in `HttpSecurityClient`.
 - Versionsquelle: `https://repo1.maven.org/maven2/<group/als/pfad>/<artifact>/maven-metadata.xml`.
 - OSV: `POST https://api.osv.dev/v1/query`, Body `{"package":{"name":"<g>:<a>","ecosystem":"Maven"}}` (+ `"page_token"`), Lücken-Link `https://osv.dev/vulnerability/<id>`.
@@ -41,7 +41,7 @@
 ```
 build.gradle.kts                                   + maven-artifact
 src/main/resources/META-INF/plugin.xml             + Einstellungsseite, Beschreibung
-src/main/java/io/github/einsnils/deplens/
+src/main/java/dev/nz3x/deplens/
   security/MavenVersion.java                       Versionsvergleich, Vorabversion, Major
   security/Severity.java                           Schweregrade + Ableitung
   security/AffectedRange.java                      OSV-Bereich (Events)
@@ -71,7 +71,7 @@ src/main/java/io/github/einsnils/deplens/
   ui/CatalogTreeCellRenderer.java                  + Markierungen je Eintrag/Kategorie
   ui/SecurityPanel.java                            Tab „Sicherheit“
   ui/DepLensPanel.java                             Toolbar, Statuszeile, Tabs, Prüfablauf
-src/test/java/io/github/einsnils/deplens/
+src/test/java/dev/nz3x/deplens/
   security/*Test.java, security/Fixtures.java, security/FakeSecurityClient.java, security/InMemoryCache.java
   catalog/DependencyCatalogTest.java               + filter-Test
 src/test/resources/security/
@@ -85,8 +85,8 @@ README.md                                          + Abschnitt Sicherheitsprüfu
 
 **Files:**
 - Modify: `build.gradle.kts`
-- Create: `src/main/java/io/github/einsnils/deplens/security/MavenVersion.java`
-- Test: `src/test/java/io/github/einsnils/deplens/security/MavenVersionTest.java`
+- Create: `src/main/java/dev/nz3x/deplens/security/MavenVersion.java`
+- Test: `src/test/java/dev/nz3x/deplens/security/MavenVersionTest.java`
 
 **Interfaces:**
 - Produces: `MavenVersion.of(String)`, `isPreRelease()`, `long major()` (`-1` ohne führende Zahl), `compareTo`, `equals`/`hashCode` (Maven-kanonisch: `1.0` = `1.0.0`), `toString()` = Originaltext (getrimmt).
@@ -110,10 +110,10 @@ git switch -c feat/security-check
 
 - [ ] **Step 3: Failing Test schreiben**
 
-`src/test/java/io/github/einsnils/deplens/security/MavenVersionTest.java`:
+`src/test/java/dev/nz3x/deplens/security/MavenVersionTest.java`:
 
 ```java
-package io.github.einsnils.deplens.security;
+package dev.nz3x.deplens.security;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
@@ -170,13 +170,13 @@ class MavenVersionTest {
 
 - [ ] **Step 4: Test ausführen, er muss fehlschlagen**
 
-Run: `./gradlew test --tests "io.github.einsnils.deplens.security.MavenVersionTest"`
+Run: `./gradlew test --tests "dev.nz3x.deplens.security.MavenVersionTest"`
 Expected: FAIL – `cannot find symbol: class MavenVersion` (bzw. deutsch „Symbol nicht gefunden“).
 
 - [ ] **Step 5: `MavenVersion` implementieren**
 
 ```java
-package io.github.einsnils.deplens.security;
+package dev.nz3x.deplens.security;
 
 import java.util.Locale;
 import java.util.Set;
@@ -245,7 +245,7 @@ public final class MavenVersion implements Comparable<MavenVersion> {
 
 - [ ] **Step 6: Test ausführen, er muss grün sein**
 
-Run: `./gradlew test --tests "io.github.einsnils.deplens.security.MavenVersionTest"`
+Run: `./gradlew test --tests "dev.nz3x.deplens.security.MavenVersionTest"`
 Expected: PASS (5 Tests).
 
 - [ ] **Step 7: Commit und Push**
@@ -263,8 +263,8 @@ git push -u origin feat/security-check
 ### Task 2: Lücken-Modell und `VulnerabilityMatcher`
 
 **Files:**
-- Create: `security/Severity.java`, `security/AffectedRange.java`, `security/Vulnerability.java`, `security/VulnerabilityMatcher.java` (alle unter `src/main/java/io/github/einsnils/deplens/`)
-- Test: `src/test/java/io/github/einsnils/deplens/security/VulnerabilityMatcherTest.java`, `src/test/java/io/github/einsnils/deplens/security/VulnerabilityTest.java`
+- Create: `security/Severity.java`, `security/AffectedRange.java`, `security/Vulnerability.java`, `security/VulnerabilityMatcher.java` (alle unter `src/main/java/dev/nz3x/deplens/`)
+- Test: `src/test/java/dev/nz3x/deplens/security/VulnerabilityMatcherTest.java`, `src/test/java/dev/nz3x/deplens/security/VulnerabilityTest.java`
 
 **Interfaces:**
 - Consumes: `MavenVersion`.
@@ -279,7 +279,7 @@ git push -u origin feat/security-check
 `VulnerabilityTest.java`:
 
 ```java
-package io.github.einsnils.deplens.security;
+package dev.nz3x.deplens.security;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
@@ -336,12 +336,12 @@ class VulnerabilityTest {
 `VulnerabilityMatcherTest.java`:
 
 ```java
-package io.github.einsnils.deplens.security;
+package dev.nz3x.deplens.security;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
-import io.github.einsnils.deplens.security.AffectedRange.Event;
-import io.github.einsnils.deplens.security.AffectedRange.Kind;
+import dev.nz3x.deplens.security.AffectedRange.Event;
+import dev.nz3x.deplens.security.AffectedRange.Kind;
 import java.util.List;
 import java.util.Set;
 import org.junit.jupiter.api.Test;
@@ -437,13 +437,13 @@ class VulnerabilityMatcherTest {
 
 - [ ] **Step 2: Tests ausführen, sie müssen fehlschlagen**
 
-Run: `./gradlew test --tests "io.github.einsnils.deplens.security.Vulnerability*"`
+Run: `./gradlew test --tests "dev.nz3x.deplens.security.Vulnerability*"`
 Expected: FAIL – `cannot find symbol: class Vulnerability`.
 
 - [ ] **Step 3: `Severity` implementieren**
 
 ```java
-package io.github.einsnils.deplens.security;
+package dev.nz3x.deplens.security;
 
 import java.util.Locale;
 import org.jetbrains.annotations.Nullable;
@@ -484,7 +484,7 @@ public enum Severity {
 - [ ] **Step 4: `AffectedRange` und `Vulnerability` implementieren**
 
 ```java
-package io.github.einsnils.deplens.security;
+package dev.nz3x.deplens.security;
 
 import java.util.List;
 
@@ -503,7 +503,7 @@ public record AffectedRange(List<Event> events) {
 ```
 
 ```java
-package io.github.einsnils.deplens.security;
+package dev.nz3x.deplens.security;
 
 import java.util.LinkedHashSet;
 import java.util.List;
@@ -540,7 +540,7 @@ public record Vulnerability(String id, List<String> aliases, Severity severity, 
 - [ ] **Step 5: `VulnerabilityMatcher` implementieren**
 
 ```java
-package io.github.einsnils.deplens.security;
+package dev.nz3x.deplens.security;
 
 import java.util.ArrayList;
 import java.util.Comparator;
@@ -620,7 +620,7 @@ public final class VulnerabilityMatcher {
 
 - [ ] **Step 6: Tests ausführen, sie müssen grün sein**
 
-Run: `./gradlew test --tests "io.github.einsnils.deplens.security.Vulnerability*"`
+Run: `./gradlew test --tests "dev.nz3x.deplens.security.Vulnerability*"`
 Expected: PASS (12 Tests).
 
 - [ ] **Step 7: Commit und Push**
@@ -795,7 +795,7 @@ Gson (`com.google.gson`) kommt aus der IntelliJ-Plattform. Falls `import com.goo
 - [ ] **Step 2: Test-Helfer `Fixtures` schreiben**
 
 ```java
-package io.github.einsnils.deplens.security;
+package dev.nz3x.deplens.security;
 
 import java.io.IOException;
 import java.io.InputStream;
@@ -823,12 +823,12 @@ final class Fixtures {
 `OsvParserTest.java`:
 
 ```java
-package io.github.einsnils.deplens.security;
+package dev.nz3x.deplens.security;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
-import io.github.einsnils.deplens.security.AffectedRange.Kind;
+import dev.nz3x.deplens.security.AffectedRange.Kind;
 import java.util.List;
 import org.junit.jupiter.api.Test;
 
@@ -884,7 +884,7 @@ class OsvParserTest {
 `MavenMetadataParserTest.java`:
 
 ```java
-package io.github.einsnils.deplens.security;
+package dev.nz3x.deplens.security;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
@@ -921,7 +921,7 @@ class MavenMetadataParserTest {
 `OssIndexParserTest.java`:
 
 ```java
-package io.github.einsnils.deplens.security;
+package dev.nz3x.deplens.security;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
@@ -979,13 +979,13 @@ class OssIndexParserTest {
 
 - [ ] **Step 4: Tests ausführen, sie müssen fehlschlagen**
 
-Run: `./gradlew test --tests "io.github.einsnils.deplens.security.*ParserTest"`
+Run: `./gradlew test --tests "dev.nz3x.deplens.security.*ParserTest"`
 Expected: FAIL – `cannot find symbol: class OsvParser`.
 
 - [ ] **Step 5: `ResponseFormatException` und `Json` implementieren**
 
 ```java
-package io.github.einsnils.deplens.security;
+package dev.nz3x.deplens.security;
 
 import java.io.IOException;
 import org.jetbrains.annotations.Nullable;
@@ -999,7 +999,7 @@ public final class ResponseFormatException extends IOException {
 ```
 
 ```java
-package io.github.einsnils.deplens.security;
+package dev.nz3x.deplens.security;
 
 import com.google.gson.JsonArray;
 import com.google.gson.JsonElement;
@@ -1058,7 +1058,7 @@ final class Json {
 - [ ] **Step 6: `OsvParser` implementieren**
 
 ```java
-package io.github.einsnils.deplens.security;
+package dev.nz3x.deplens.security;
 
 import com.google.gson.JsonElement;
 import com.google.gson.JsonObject;
@@ -1144,7 +1144,7 @@ public final class OsvParser {
 - [ ] **Step 7: `MavenMetadataParser` implementieren**
 
 ```java
-package io.github.einsnils.deplens.security;
+package dev.nz3x.deplens.security;
 
 import java.io.IOException;
 import java.io.StringReader;
@@ -1190,7 +1190,7 @@ public final class MavenMetadataParser {
 - [ ] **Step 8: `OssIndexParser` implementieren**
 
 ```java
-package io.github.einsnils.deplens.security;
+package dev.nz3x.deplens.security;
 
 import com.google.gson.JsonElement;
 import com.google.gson.JsonObject;
@@ -1249,7 +1249,7 @@ public final class OssIndexParser {
 
 - [ ] **Step 9: Tests ausführen, sie müssen grün sein**
 
-Run: `./gradlew test --tests "io.github.einsnils.deplens.security.*ParserTest"`
+Run: `./gradlew test --tests "dev.nz3x.deplens.security.*ParserTest"`
 Expected: PASS (11 Tests).
 
 - [ ] **Step 10: Commit und Push**
@@ -1267,8 +1267,8 @@ git push
 ### Task 4: `UpgradeAdvisor`
 
 **Files:**
-- Create: `src/main/java/io/github/einsnils/deplens/security/UpgradeAdvisor.java`
-- Test: `src/test/java/io/github/einsnils/deplens/security/UpgradeAdvisorTest.java`
+- Create: `src/main/java/dev/nz3x/deplens/security/UpgradeAdvisor.java`
+- Test: `src/test/java/dev/nz3x/deplens/security/UpgradeAdvisorTest.java`
 
 **Interfaces:**
 - Consumes: `MavenVersion`, `Vulnerability`, `VulnerabilityMatcher`.
@@ -1282,12 +1282,12 @@ git push
 - [ ] **Step 1: Failing Test schreiben**
 
 ```java
-package io.github.einsnils.deplens.security;
+package dev.nz3x.deplens.security;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
-import io.github.einsnils.deplens.security.AffectedRange.Event;
-import io.github.einsnils.deplens.security.AffectedRange.Kind;
+import dev.nz3x.deplens.security.AffectedRange.Event;
+import dev.nz3x.deplens.security.AffectedRange.Kind;
 import java.util.List;
 import java.util.Set;
 import java.util.stream.Stream;
@@ -1387,13 +1387,13 @@ Erklärung `givesUpAfterMaxTries`: Für „gleiche Major“ werden nur die erste
 
 - [ ] **Step 2: Test ausführen, er muss fehlschlagen**
 
-Run: `./gradlew test --tests "io.github.einsnils.deplens.security.UpgradeAdvisorTest"`
+Run: `./gradlew test --tests "dev.nz3x.deplens.security.UpgradeAdvisorTest"`
 Expected: FAIL – `cannot find symbol: class UpgradeAdvisor`.
 
 - [ ] **Step 3: `UpgradeAdvisor` implementieren**
 
 ```java
-package io.github.einsnils.deplens.security;
+package dev.nz3x.deplens.security;
 
 import java.util.LinkedHashSet;
 import java.util.List;
@@ -1457,7 +1457,7 @@ public final class UpgradeAdvisor {
 
 - [ ] **Step 4: Test ausführen, er muss grün sein**
 
-Run: `./gradlew test --tests "io.github.einsnils.deplens.security.UpgradeAdvisorTest"`
+Run: `./gradlew test --tests "dev.nz3x.deplens.security.UpgradeAdvisorTest"`
 Expected: PASS (7 Tests).
 
 - [ ] **Step 5: Commit und Push**
@@ -1497,7 +1497,7 @@ git push
 `FakeSecurityClient.java`:
 
 ```java
-package io.github.einsnils.deplens.security;
+package dev.nz3x.deplens.security;
 
 import java.io.IOException;
 import java.util.ArrayList;
@@ -1554,7 +1554,7 @@ final class FakeSecurityClient implements SecurityClient {
 `InMemoryCache.java`:
 
 ```java
-package io.github.einsnils.deplens.security;
+package dev.nz3x.deplens.security;
 
 import java.time.Duration;
 import java.util.HashMap;
@@ -1582,7 +1582,7 @@ final class InMemoryCache implements ResponseCache {
 `SecurityLinksTest.java`:
 
 ```java
-package io.github.einsnils.deplens.security;
+package dev.nz3x.deplens.security;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
@@ -1603,12 +1603,12 @@ class SecurityLinksTest {
 `SecurityCheckerTest.java`:
 
 ```java
-package io.github.einsnils.deplens.security;
+package dev.nz3x.deplens.security;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
-import io.github.einsnils.deplens.security.SecurityChecker.Notice;
-import io.github.einsnils.deplens.security.SecurityReport.Status;
+import dev.nz3x.deplens.security.SecurityChecker.Notice;
+import dev.nz3x.deplens.security.SecurityReport.Status;
 import java.io.IOException;
 import java.time.Duration;
 import java.util.ArrayList;
@@ -1871,7 +1871,7 @@ Hinweis zu `ossIndexRejectsACandidate`: Erste OSS-Anfrage = aktuelle Version (1 
 
 - [ ] **Step 3: Tests ausführen, sie müssen fehlschlagen**
 
-Run: `./gradlew test --tests "io.github.einsnils.deplens.security.Security*"`
+Run: `./gradlew test --tests "dev.nz3x.deplens.security.Security*"`
 Expected: FAIL – `cannot find symbol: class SecurityChecker`.
 
 - [ ] **Step 4: Kleine Typen implementieren**
@@ -1879,7 +1879,7 @@ Expected: FAIL – `cannot find symbol: class SecurityChecker`.
 `Artifact.java`:
 
 ```java
-package io.github.einsnils.deplens.security;
+package dev.nz3x.deplens.security;
 
 /** Ein zu prüfendes Artefakt. */
 public record Artifact(String groupId, String artifactId, String version) {
@@ -1897,7 +1897,7 @@ public record Artifact(String groupId, String artifactId, String version) {
 `Finding.java`:
 
 ```java
-package io.github.einsnils.deplens.security;
+package dev.nz3x.deplens.security;
 
 import org.jetbrains.annotations.Nullable;
 
@@ -1909,7 +1909,7 @@ public record Finding(Vulnerability vulnerability, @Nullable MavenVersion fixedI
 `SecurityReport.java`:
 
 ```java
-package io.github.einsnils.deplens.security;
+package dev.nz3x.deplens.security;
 
 import java.util.List;
 import org.jetbrains.annotations.Nullable;
@@ -1945,7 +1945,7 @@ public record SecurityReport(Status status, List<Finding> findings, UpgradeAdvis
 `SecurityLinks.java`:
 
 ```java
-package io.github.einsnils.deplens.security;
+package dev.nz3x.deplens.security;
 
 import java.net.URLEncoder;
 import java.nio.charset.StandardCharsets;
@@ -1969,7 +1969,7 @@ public final class SecurityLinks {
 `HttpStatusException.java`:
 
 ```java
-package io.github.einsnils.deplens.security;
+package dev.nz3x.deplens.security;
 
 import java.io.IOException;
 
@@ -1991,7 +1991,7 @@ public final class HttpStatusException extends IOException {
 `SecurityClient.java`:
 
 ```java
-package io.github.einsnils.deplens.security;
+package dev.nz3x.deplens.security;
 
 import java.io.IOException;
 import java.util.List;
@@ -2014,7 +2014,7 @@ public interface SecurityClient {
 `ResponseCache.java`:
 
 ```java
-package io.github.einsnils.deplens.security;
+package dev.nz3x.deplens.security;
 
 import java.time.Duration;
 import org.jetbrains.annotations.Nullable;
@@ -2032,7 +2032,7 @@ public interface ResponseCache {
 - [ ] **Step 5: `SecurityChecker` implementieren**
 
 ```java
-package io.github.einsnils.deplens.security;
+package dev.nz3x.deplens.security;
 
 import java.io.IOException;
 import java.time.Duration;
@@ -2336,7 +2336,7 @@ public final class SecurityChecker {
 
 - [ ] **Step 6: Tests ausführen, sie müssen grün sein**
 
-Run: `./gradlew test --tests "io.github.einsnils.deplens.security.*"`
+Run: `./gradlew test --tests "dev.nz3x.deplens.security.*"`
 Expected: PASS (alle Tests aus Task 1–5).
 
 - [ ] **Step 7: Commit und Push**
@@ -2356,7 +2356,7 @@ git push
 **Files:**
 - Create: `security/FileResponseCache.java`, `security/HttpSecurityClient.java`, `security/SecurityService.java`, `settings/DepLensSettings.java`, `settings/DepLensConfigurable.java`
 - Modify: `src/main/resources/META-INF/plugin.xml`
-- Test: `src/test/java/io/github/einsnils/deplens/security/FileResponseCacheTest.java`
+- Test: `src/test/java/dev/nz3x/deplens/security/FileResponseCacheTest.java`
 
 **Interfaces:**
 - Consumes: `ResponseCache`, `SecurityClient`, `HttpStatusException`, `SecurityChecker`, `Artifact`.
@@ -2369,7 +2369,7 @@ git push
 - [ ] **Step 1: Failing Test für den Datei-Cache schreiben**
 
 ```java
-package io.github.einsnils.deplens.security;
+package dev.nz3x.deplens.security;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
@@ -2473,13 +2473,13 @@ class FileResponseCacheTest {
 
 - [ ] **Step 2: Test ausführen, er muss fehlschlagen**
 
-Run: `./gradlew test --tests "io.github.einsnils.deplens.security.FileResponseCacheTest"`
+Run: `./gradlew test --tests "dev.nz3x.deplens.security.FileResponseCacheTest"`
 Expected: FAIL – `cannot find symbol: class FileResponseCache`.
 
 - [ ] **Step 3: `FileResponseCache` implementieren**
 
 ```java
-package io.github.einsnils.deplens.security;
+package dev.nz3x.deplens.security;
 
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
@@ -2557,7 +2557,7 @@ public final class FileResponseCache implements ResponseCache {
 
 - [ ] **Step 4: Test ausführen, er muss grün sein**
 
-Run: `./gradlew test --tests "io.github.einsnils.deplens.security.FileResponseCacheTest"`
+Run: `./gradlew test --tests "dev.nz3x.deplens.security.FileResponseCacheTest"`
 Expected: PASS (5 Tests).
 
 - [ ] **Step 5: Commit**
@@ -2572,7 +2572,7 @@ Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>"
 - [ ] **Step 6: `HttpSecurityClient` implementieren**
 
 ```java
-package io.github.einsnils.deplens.security;
+package dev.nz3x.deplens.security;
 
 import com.google.gson.JsonArray;
 import com.google.gson.JsonObject;
@@ -2667,7 +2667,7 @@ public final class HttpSecurityClient implements SecurityClient {
 - [ ] **Step 7: `DepLensSettings` implementieren**
 
 ```java
-package io.github.einsnils.deplens.settings;
+package dev.nz3x.deplens.settings;
 
 import com.intellij.credentialStore.CredentialAttributes;
 import com.intellij.credentialStore.CredentialAttributesKt;
@@ -2751,7 +2751,7 @@ public final class DepLensSettings implements PersistentStateComponent<DepLensSe
 - [ ] **Step 8: `DepLensConfigurable` implementieren**
 
 ```java
-package io.github.einsnils.deplens.settings;
+package dev.nz3x.deplens.settings;
 
 import com.intellij.openapi.application.ApplicationManager;
 import com.intellij.openapi.options.Configurable;
@@ -2845,14 +2845,14 @@ public final class DepLensConfigurable implements Configurable {
 - [ ] **Step 9: `SecurityService` implementieren**
 
 ```java
-package io.github.einsnils.deplens.security;
+package dev.nz3x.deplens.security;
 
 import com.intellij.openapi.application.PathManager;
 import com.intellij.openapi.components.Service;
 import com.intellij.openapi.diagnostic.Logger;
 import com.intellij.openapi.project.Project;
 import com.intellij.util.concurrency.AppExecutorUtil;
-import io.github.einsnils.deplens.settings.DepLensSettings;
+import dev.nz3x.deplens.settings.DepLensSettings;
 import java.time.Clock;
 import java.util.List;
 import java.util.Set;
@@ -2920,8 +2920,8 @@ public final class SecurityService {
 
 ```xml
         <applicationConfigurable parentId="tools"
-                                 instance="io.github.einsnils.deplens.settings.DepLensConfigurable"
-                                 id="io.github.einsnils.deplens.settings"
+                                 instance="dev.nz3x.deplens.settings.DepLensConfigurable"
+                                 id="dev.nz3x.deplens.settings"
                                  displayName="DepLens"/>
 ```
 
@@ -2945,12 +2945,12 @@ git push
 ### Task 7: UI – Markierungen, Filter, Statuszeile, Tab „Sicherheit“
 
 **Files:**
-- Modify: `src/main/java/io/github/einsnils/deplens/catalog/DependencyCatalog.java` (+ `filter`)
-- Modify: `src/test/java/io/github/einsnils/deplens/catalog/DependencyCatalogTest.java`
-- Modify: `src/main/java/io/github/einsnils/deplens/ui/NodeText.java`
-- Replace: `src/main/java/io/github/einsnils/deplens/ui/CatalogTreeCellRenderer.java`
-- Create: `src/main/java/io/github/einsnils/deplens/ui/SecurityPanel.java`
-- Replace: `src/main/java/io/github/einsnils/deplens/ui/DepLensPanel.java`
+- Modify: `src/main/java/dev/nz3x/deplens/catalog/DependencyCatalog.java` (+ `filter`)
+- Modify: `src/test/java/dev/nz3x/deplens/catalog/DependencyCatalogTest.java`
+- Modify: `src/main/java/dev/nz3x/deplens/ui/NodeText.java`
+- Replace: `src/main/java/dev/nz3x/deplens/ui/CatalogTreeCellRenderer.java`
+- Create: `src/main/java/dev/nz3x/deplens/ui/SecurityPanel.java`
+- Replace: `src/main/java/dev/nz3x/deplens/ui/DepLensPanel.java`
 
 **Interfaces:**
 - Consumes: `SecurityService`, `SecurityChecker.Listener/Notice`, `SecurityReport`, `Finding`, `UpgradeAdvisor.Upgrade`, `SecurityLinks`, `Artifact`, `DepLensSettings`, bestehend: `DependencyCatalog.build/entryCount`, `CatalogEntry`, `CatalogCategory`, `TreeModels`, `GradleDependencySource`, `RequestSequencer`.
@@ -2972,7 +2972,7 @@ git push
 
 - [ ] **Step 2: Test ausführen, er muss fehlschlagen**
 
-Run: `./gradlew test --tests "io.github.einsnils.deplens.catalog.DependencyCatalogTest"`
+Run: `./gradlew test --tests "dev.nz3x.deplens.catalog.DependencyCatalogTest"`
 Expected: FAIL – `cannot find symbol: method filter`.
 
 - [ ] **Step 3: `filter` in `DependencyCatalog` ergänzen** (nach `entryCount`; Import `java.util.function.Predicate`)
@@ -2990,7 +2990,7 @@ Expected: FAIL – `cannot find symbol: method filter`.
 
 - [ ] **Step 4: Test ausführen, er muss grün sein**
 
-Run: `./gradlew test --tests "io.github.einsnils.deplens.catalog.DependencyCatalogTest"`
+Run: `./gradlew test --tests "dev.nz3x.deplens.catalog.DependencyCatalogTest"`
 Expected: PASS.
 
 - [ ] **Step 5: Commit**
@@ -3004,7 +3004,7 @@ Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>"
 
 - [ ] **Step 6: Sicherheits-Markierung in `NodeText` ergänzen**
 
-Neue Imports: `io.github.einsnils.deplens.security.SecurityReport`, `java.awt.Color`. Neue Konstanten nach `WARNING`:
+Neue Imports: `dev.nz3x.deplens.security.SecurityReport`, `java.awt.Color`. Neue Konstanten nach `WARNING`:
 
 ```java
     private static final SimpleTextAttributes VULNERABLE =
@@ -3050,14 +3050,14 @@ Neue Methoden vor `tooltip(CatalogEntry)`:
 - [ ] **Step 7: `CatalogTreeCellRenderer` ersetzen**
 
 ```java
-package io.github.einsnils.deplens.ui;
+package dev.nz3x.deplens.ui;
 
 import com.intellij.icons.AllIcons;
 import com.intellij.ui.ColoredTreeCellRenderer;
 import com.intellij.ui.SimpleTextAttributes;
-import io.github.einsnils.deplens.catalog.CatalogCategory;
-import io.github.einsnils.deplens.catalog.CatalogEntry;
-import io.github.einsnils.deplens.security.SecurityReport;
+import dev.nz3x.deplens.catalog.CatalogCategory;
+import dev.nz3x.deplens.catalog.CatalogEntry;
+import dev.nz3x.deplens.security.SecurityReport;
 import java.util.function.Function;
 import javax.swing.JTree;
 import javax.swing.tree.DefaultMutableTreeNode;
@@ -3105,7 +3105,7 @@ final class CatalogTreeCellRenderer extends ColoredTreeCellRenderer {
 - [ ] **Step 8: `SecurityPanel` schreiben**
 
 ```java
-package io.github.einsnils.deplens.ui;
+package dev.nz3x.deplens.ui;
 
 import com.intellij.ide.BrowserUtil;
 import com.intellij.ui.components.ActionLink;
@@ -3115,13 +3115,13 @@ import com.intellij.ui.components.panels.VerticalLayout;
 import com.intellij.ui.table.JBTable;
 import com.intellij.util.ui.JBUI;
 import com.intellij.util.ui.UIUtil;
-import io.github.einsnils.deplens.catalog.CatalogEntry;
-import io.github.einsnils.deplens.model.DependencyNode;
-import io.github.einsnils.deplens.security.Finding;
-import io.github.einsnils.deplens.security.MavenVersion;
-import io.github.einsnils.deplens.security.SecurityLinks;
-import io.github.einsnils.deplens.security.SecurityReport;
-import io.github.einsnils.deplens.security.UpgradeAdvisor;
+import dev.nz3x.deplens.catalog.CatalogEntry;
+import dev.nz3x.deplens.model.DependencyNode;
+import dev.nz3x.deplens.security.Finding;
+import dev.nz3x.deplens.security.MavenVersion;
+import dev.nz3x.deplens.security.SecurityLinks;
+import dev.nz3x.deplens.security.SecurityReport;
+import dev.nz3x.deplens.security.UpgradeAdvisor;
 import java.awt.BorderLayout;
 import java.awt.FlowLayout;
 import java.awt.event.MouseAdapter;
@@ -3290,7 +3290,7 @@ final class SecurityPanel extends JPanel {
 Die bestehende Lade-/Thread-Logik (Module, `inBackground`, `handleMissingData`, `syncGradle`) bleibt inhaltlich gleich; neu sind Sicherheitsprüfung, Filter, Statuszeile und Tabs.
 
 ```java
-package io.github.einsnils.deplens.ui;
+package dev.nz3x.deplens.ui;
 
 import com.intellij.icons.AllIcons;
 import com.intellij.openapi.Disposable;
@@ -3317,17 +3317,17 @@ import com.intellij.ui.treeStructure.Tree;
 import com.intellij.util.Alarm;
 import com.intellij.util.ui.JBUI;
 import com.intellij.util.ui.tree.TreeUtil;
-import io.github.einsnils.deplens.catalog.CatalogCategory;
-import io.github.einsnils.deplens.catalog.CatalogEntry;
-import io.github.einsnils.deplens.catalog.DependencyCatalog;
-import io.github.einsnils.deplens.gradle.GradleDependencySource;
-import io.github.einsnils.deplens.model.DependencyGraph;
-import io.github.einsnils.deplens.model.DependencyNode;
-import io.github.einsnils.deplens.security.Artifact;
-import io.github.einsnils.deplens.security.SecurityChecker;
-import io.github.einsnils.deplens.security.SecurityReport;
-import io.github.einsnils.deplens.security.SecurityService;
-import io.github.einsnils.deplens.settings.DepLensSettings;
+import dev.nz3x.deplens.catalog.CatalogCategory;
+import dev.nz3x.deplens.catalog.CatalogEntry;
+import dev.nz3x.deplens.catalog.DependencyCatalog;
+import dev.nz3x.deplens.gradle.GradleDependencySource;
+import dev.nz3x.deplens.model.DependencyGraph;
+import dev.nz3x.deplens.model.DependencyNode;
+import dev.nz3x.deplens.security.Artifact;
+import dev.nz3x.deplens.security.SecurityChecker;
+import dev.nz3x.deplens.security.SecurityReport;
+import dev.nz3x.deplens.security.SecurityService;
+import dev.nz3x.deplens.settings.DepLensSettings;
 import java.awt.BorderLayout;
 import java.awt.CardLayout;
 import java.awt.FlowLayout;
