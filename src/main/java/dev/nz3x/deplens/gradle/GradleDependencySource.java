@@ -1,11 +1,11 @@
 package dev.nz3x.deplens.gradle;
 
+import com.intellij.DynamicBundle;
 import com.intellij.openapi.Disposable;
 import com.intellij.openapi.externalSystem.dependency.analyzer.DependencyAnalyzerContributor;
 import com.intellij.openapi.externalSystem.dependency.analyzer.DependencyAnalyzerExtension;
 import com.intellij.openapi.externalSystem.dependency.analyzer.DependencyAnalyzerProject;
 import com.intellij.openapi.externalSystem.importing.ImportSpecBuilder;
-import com.intellij.openapi.externalSystem.util.ExternalSystemBundle;
 import com.intellij.openapi.externalSystem.util.ExternalSystemUtil;
 import com.intellij.openapi.project.Project;
 import com.intellij.openapi.util.Disposer;
@@ -20,8 +20,11 @@ import org.jetbrains.plugins.gradle.util.GradleConstants;
 public final class GradleDependencySource implements Disposable {
     private final Project project;
     private final Runnable onDataChanged;
-    private final DependencyGraphMapper mapper = new DependencyGraphMapper(
-            ExternalSystemBundle.message("external.system.dependency.analyzer.warning.unresolved"));
+    // ExternalSystemBundle ist interne API; dasselbe Bundle über die öffentliche DynamicBundle-API laden.
+    private static final DynamicBundle EXTERNAL_SYSTEM_MESSAGES =
+            new DynamicBundle(ExternalSystemUtil.class, "messages.ExternalSystemBundle");
+    private final DependencyGraphMapper mapper = new DependencyGraphMapper(EXTERNAL_SYSTEM_MESSAGES.messageOrDefault(
+            "external.system.dependency.analyzer.warning.unresolved", "unresolved"));
     private @Nullable Disposable contributorDisposable;
     private @Nullable DependencyAnalyzerContributor contributor;
 
