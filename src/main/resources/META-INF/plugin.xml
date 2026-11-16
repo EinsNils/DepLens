@@ -1,0 +1,12 @@
+<idea-plugin>
+    <id>io.github.einsnils.deplens</id>
+    <name>DepLens</name>
+    <vendor>EinsNils</vendor>
+    <description><![CDATA[
+        Search Gradle dependencies per module and see who pulls them in (parents)
+        and what they bring along (children).
+    ]]></description>
+
+    <depends>com.intellij.modules.platform</depends>
+    <depends>com.intellij.gradle</depends>
+</idea-plugin>
