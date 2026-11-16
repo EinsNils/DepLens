@@ -32,6 +32,7 @@ import dev.nz3x.deplens.gradle.GradleDependencySource;
 import dev.nz3x.deplens.model.DependencyGraph;
 import dev.nz3x.deplens.model.DependencyNode;
 import dev.nz3x.deplens.security.Artifact;
+import dev.nz3x.deplens.security.CheckableVersion;
 import dev.nz3x.deplens.security.SecurityChecker;
 import dev.nz3x.deplens.security.SecurityReport;
 import dev.nz3x.deplens.security.SecurityService;
@@ -341,10 +342,13 @@ public final class DepLensPanel extends JPanel implements Disposable {
         for (CatalogCategory category : DependencyCatalog.build(graph, "")) {
             for (CatalogEntry entry : category.entries()) {
                 DependencyNode node = entry.representative();
-                if (node.kind() == DependencyNode.Kind.ARTIFACT) {
+                String problem = node.kind() == DependencyNode.Kind.ARTIFACT
+                        ? CheckableVersion.problem(node.version(), entry.isUnresolved())
+                        : "Projekt-Modul";
+                if (problem == null) {
                     artifacts.add(new Artifact(node.groupId(), node.artifactId(), node.version()));
                 } else {
-                    reports.put(entry.coordinates(), SecurityReport.notCheckable("Projekt-Modul"));
+                    reports.put(entry.coordinates(), SecurityReport.notCheckable(problem));
                 }
             }
         }
