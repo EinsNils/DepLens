@@ -25,6 +25,11 @@ dependencies {
         bundledPlugin("com.intellij.gradle")
     }
 
+    // Maven-Versionsvergleich; nur ComparableVersion wird gebraucht
+    implementation("org.apache.maven:maven-artifact:3.10.1") {
+        isTransitive = false
+    }
+
     testImplementation(platform("org.junit:junit-bom:6.1.3"))
     testImplementation("org.junit.jupiter:junit-jupiter")
     testRuntimeOnly("org.junit.platform:junit-platform-launcher")
