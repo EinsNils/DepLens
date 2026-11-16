@@ -253,7 +253,11 @@ public final class DepLensPanel extends JPanel implements Disposable {
     }
 
     private boolean isVulnerable(CatalogEntry entry) {
-        SecurityReport report = reports.get(entry.coordinates());
+        return isVulnerable(entry.coordinates());
+    }
+
+    private boolean isVulnerable(String coordinates) {
+        SecurityReport report = reports.get(coordinates);
         return report != null && report.status() == SecurityReport.Status.VERWUNDBAR;
     }
 
@@ -317,9 +321,7 @@ public final class DepLensPanel extends JPanel implements Disposable {
         securityButton.setVisible(enabled);
         if (!enabled) {
             onlyVulnerable.setSelected(false);
-            securitySequencer.next();
-            reports.clear();
-            setStatus(null, false);
+            cancelSecurityCheck();
             if (hasSecurityTab()) {
                 detailTabs.removeTabAt(SECURITY_TAB);
             }
@@ -331,13 +333,10 @@ public final class DepLensPanel extends JPanel implements Disposable {
 
     /** Prüft alle Artefakte des Moduls; ältere Prüfungen werden dabei verworfen. */
     private void startSecurityCheck(boolean forceRefresh) {
+        long request = cancelSecurityCheck();
         if (!securityEnabled() || graph.isEmpty()) {
             return;
         }
-        long request = securitySequencer.next();
-        reports.clear();
-        securityFailures = 0;
-        securityNotice = null;
         List<Artifact> artifacts = new ArrayList<>();
         for (CatalogCategory category : DependencyCatalog.build(graph, "")) {
             for (CatalogEntry entry : category.entries()) {
@@ -386,23 +385,64 @@ public final class DepLensPanel extends JPanel implements Disposable {
         });
     }
 
+    /** Verwirft eine laufende Prüfung samt Ergebnissen und Statuszeile; liefert die neue Anfrage-Nummer. */
+    private long cancelSecurityCheck() {
+        long request = securitySequencer.next();
+        reports.clear();
+        securityFailures = 0;
+        securityNotice = null;
+        setStatus(null, false);
+        catalogTree.repaint();
+        refreshSelectedEntry();
+        return request;
+    }
+
     private void applyReport(Artifact artifact, SecurityReport report) {
+        boolean newlyVulnerable = report.status() == SecurityReport.Status.VERWUNDBAR
+                && !isVulnerable(artifact.coordinates());
         reports.put(artifact.coordinates(), report);
         if (report.status() == SecurityReport.Status.FEHLER) {
             securityFailures++;
         }
         catalogTree.repaint();
         refreshSelectedEntry();
+        CatalogEntry selected = selectedEntry();
+        if (newlyVulnerable && hasSecurityTab() && selected != null
+                && selected.coordinates().equals(artifact.coordinates())) {
+            detailTabs.setSelectedIndex(SECURITY_TAB);
+        }
     }
 
     private void finishSecurityCheck() {
         if (securityFailures > 0) {
-            setStatus(securityFailures + (securityFailures == 1 ? " Prüfung" : " Prüfungen") + " fehlgeschlagen", true);
+            String failures = securityFailures + (securityFailures == 1 ? " Prüfung" : " Prüfungen") + " fehlgeschlagen";
+            setStatus(securityNotice == null ? failures : failures + " · " + securityNotice, true);
         } else {
             setStatus(securityNotice, false);
         }
         if (onlyVulnerable.isSelected()) {
+            CatalogEntry selected = selectedEntry();
             runSearch();
+            if (selected != null) {
+                select(selected.coordinates());
+            }
+        }
+    }
+
+    /** Wählt den Eintrag mit diesen Koordinaten, falls er im Baum steht. */
+    private void select(String coordinates) {
+        DefaultMutableTreeNode root = (DefaultMutableTreeNode) catalogTree.getModel().getRoot();
+        for (int i = 0; i < root.getChildCount(); i++) {
+            DefaultMutableTreeNode category = (DefaultMutableTreeNode) root.getChildAt(i);
+            for (int j = 0; j < category.getChildCount(); j++) {
+                DefaultMutableTreeNode node = (DefaultMutableTreeNode) category.getChildAt(j);
+                if (node.getUserObject() instanceof CatalogEntry entry && entry.coordinates().equals(coordinates)) {
+                    TreePath path = new TreePath(node.getPath());
+                    catalogTree.setSelectionPath(path);
+                    catalogTree.scrollPathToVisible(path);
+                    return;
+                }
+            }
         }
     }
 
@@ -449,6 +489,7 @@ public final class DepLensPanel extends JPanel implements Disposable {
      * gestartet, damit DepLens ohne manuellen Sync alle Dependencies erkennt.
      */
     private void handleMissingData(String message) {
+        cancelSecurityCheck();
         if (!autoSyncDone) {
             autoSyncDone = true;
             if (source.requestSync()) {
