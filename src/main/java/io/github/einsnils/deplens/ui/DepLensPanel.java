@@ -23,7 +23,6 @@ import com.intellij.ui.components.JBScrollPane;
 import com.intellij.ui.treeStructure.Tree;
 import com.intellij.util.Alarm;
 import com.intellij.util.ui.JBUI;
-import com.intellij.util.ui.tree.TreeUtil;
 import io.github.einsnils.deplens.gradle.GradleDependencySource;
 import io.github.einsnils.deplens.model.DependencyGraph;
 import io.github.einsnils.deplens.search.DependencySearch;
@@ -41,6 +40,9 @@ import javax.swing.JPanel;
 import javax.swing.SwingConstants;
 import javax.swing.ToolTipManager;
 import javax.swing.event.DocumentEvent;
+import javax.swing.tree.DefaultMutableTreeNode;
+import javax.swing.tree.DefaultTreeModel;
+import javax.swing.tree.TreePath;
 
 /** Inhalt des DepLens-Tool-Windows. */
 public final class DepLensPanel extends JPanel implements Disposable {
@@ -55,11 +57,12 @@ public final class DepLensPanel extends JPanel implements Disposable {
     private final Alarm searchAlarm = new Alarm(Alarm.ThreadToUse.SWING_THREAD, this);
     private final CollectionListModel<SearchHit> hitModel = new CollectionListModel<>();
     private final JBList<SearchHit> hitList = new JBList<>(hitModel);
-    private final Tree parentsTree = new Tree(TreeModels.empty());
-    private final Tree childrenTree = new Tree(TreeModels.empty());
-    private final DependencyTreeCellRenderer parentsRenderer = new DependencyTreeCellRenderer();
-    private final DependencyTreeCellRenderer childrenRenderer = new DependencyTreeCellRenderer();
-    private final JPanel toolbar = new JPanel(new BorderLayout(JBUI.scale(4), 0));
+    private final Tree pathTree = new Tree(TreeModels.empty());
+    private final DependencyTreeCellRenderer pathRenderer = new DependencyTreeCellRenderer();
+    private final JBLabel listTitle = sectionTitle("");
+    private final OnePixelSplitter contentSplitter = new OnePixelSplitter(true, 0.45f);
+    private final JComponent pathSection;
+    private final JPanel toolbar = new JPanel(new BorderLayout(JBUI.scale(8), 0));
     private final CardLayout cards = new CardLayout();
     private final JPanel cardPanel = new JPanel(cards);
     private final JBLabel messageLabel = new JBLabel("", SwingConstants.CENTER);
@@ -95,7 +98,7 @@ public final class DepLensPanel extends JPanel implements Disposable {
             reloadModules();
         });
 
-        toolbar.setBorder(JBUI.Borders.empty(4));
+        toolbar.setBorder(JBUI.Borders.empty(8));
         toolbar.add(moduleBox, BorderLayout.WEST);
         toolbar.add(searchField, BorderLayout.CENTER);
         searchField.addDocumentListener(new DocumentAdapter() {
@@ -113,13 +116,12 @@ public final class DepLensPanel extends JPanel implements Disposable {
                 showHit(hitList.getSelectedValue());
             }
         });
-        parentsTree.setCellRenderer(parentsRenderer);
-        childrenTree.setCellRenderer(childrenRenderer);
-        ToolTipManager.sharedInstance().registerComponent(parentsTree);
-        ToolTipManager.sharedInstance().registerComponent(childrenTree);
-        hitList.setFixedCellHeight(JBUI.scale(22));
-        parentsTree.setRootVisible(true);
-        childrenTree.setRootVisible(true);
+        hitList.setFixedCellHeight(JBUI.scale(26));
+        pathTree.setCellRenderer(pathRenderer);
+        pathTree.setRootVisible(true);
+        pathTree.setBorder(JBUI.Borders.empty(4, 8));
+        ToolTipManager.sharedInstance().registerComponent(pathTree);
+        pathSection = section(sectionTitle("Abhängigkeitspfad"), new JBScrollPane(pathTree));
 
         retryButton.addActionListener(e -> {
             source.reset();
@@ -143,22 +145,22 @@ public final class DepLensPanel extends JPanel implements Disposable {
         reloadModules();
     }
 
+    /** Liste oben; der Abhängigkeitspfad wird erst bei einer Auswahl unten eingeblendet. */
     private JComponent createContent() {
-        OnePixelSplitter trees = new OnePixelSplitter(false, 0.5f);
-        trees.setFirstComponent(titled("Parents (bis zum Modul)", new JBScrollPane(parentsTree)));
-        trees.setSecondComponent(titled("Children", new JBScrollPane(childrenTree)));
-
-        OnePixelSplitter main = new OnePixelSplitter(true, 0.35f);
-        main.setFirstComponent(titled("Treffer", new JBScrollPane(hitList)));
-        main.setSecondComponent(trees);
-        return main;
+        contentSplitter.setFirstComponent(section(listTitle, new JBScrollPane(hitList)));
+        return contentSplitter;
     }
 
-    private static JComponent titled(String title, JComponent body) {
+    private static JBLabel sectionTitle(String text) {
+        JBLabel label = new JBLabel(text);
+        label.setFont(JBUI.Fonts.label().asBold());
+        label.setBorder(JBUI.Borders.empty(6, 10));
+        return label;
+    }
+
+    private static JComponent section(JBLabel title, JComponent body) {
         JPanel panel = new JPanel(new BorderLayout());
-        JBLabel label = new JBLabel(title);
-        label.setBorder(JBUI.Borders.empty(2, 4));
-        panel.add(label, BorderLayout.NORTH);
+        panel.add(title, BorderLayout.NORTH);
         panel.add(body, BorderLayout.CENTER);
         return panel;
     }
@@ -172,31 +174,40 @@ public final class DepLensPanel extends JPanel implements Disposable {
     private void runSearch() {
         String query = searchField.getText();
         List<SearchHit> hits = DependencySearch.search(graph, query);
+        boolean searching = !query.isBlank();
         hitModel.replaceAll(hits);
-        hitList.getEmptyText().setText(query.isBlank()
-                ? "Suchbegriff eingeben, z. B. jackson-databind"
-                : "Keine Treffer für ‚" + query.strip() + "‘");
-        if (hits.isEmpty()) {
-            showHit(null);
-        } else {
+        listTitle.setText((searching ? "Treffer" : "Alle Dependencies") + " (" + hits.size() + ")");
+        hitList.getEmptyText().setText(searching
+                ? "Keine Treffer für ‚" + query.strip() + "‘"
+                : "Keine Dependencies");
+        if (searching && !hits.isEmpty()) {
             hitList.setSelectedIndex(0);
             // Listener feuert nicht, wenn Index 0 schon ausgewählt war
             showHit(hitList.getSelectedValue());
+        } else {
+            hitList.clearSelection();
+            showHit(null);
         }
     }
 
+    /** Zeigt den Pfad Modul → … → Treffer samt Children; ohne Treffer wird der Bereich ausgeblendet. */
     private void showHit(SearchHit hit) {
         if (hit == null) {
-            parentsTree.setModel(TreeModels.empty());
-            childrenTree.setModel(TreeModels.empty());
+            pathTree.setModel(TreeModels.empty());
+            contentSplitter.setSecondComponent(null);
             return;
         }
-        parentsRenderer.setHighlighted(hit.node());
-        childrenRenderer.setHighlighted(hit.node());
-        parentsTree.setModel(TreeModels.parentPath(hit));
-        TreeUtil.expandAll(parentsTree);
-        childrenTree.setModel(TreeModels.children(hit.node()));
-        TreeUtil.expand(childrenTree, 2);
+        pathRenderer.setHighlighted(hit.node());
+        DefaultTreeModel model = TreeModels.pathWithChildren(hit);
+        pathTree.setModel(model);
+        DefaultMutableTreeNode hitNode = TreeModels.hitNode(model, hit);
+        TreePath hitPath = new TreePath(hitNode.getPath());
+        pathTree.expandPath(hitPath);
+        for (int i = 0; i < hitNode.getChildCount(); i++) {
+            pathTree.expandPath(hitPath.pathByAddingChild(hitNode.getChildAt(i)));
+        }
+        contentSplitter.setSecondComponent(pathSection);
+        pathTree.scrollPathToVisible(hitPath);
     }
 
     private void reloadModules() {

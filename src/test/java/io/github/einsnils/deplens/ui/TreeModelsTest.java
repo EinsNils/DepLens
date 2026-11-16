@@ -14,27 +14,41 @@ class TreeModelsTest {
     private final TestGraphs g = new TestGraphs();
 
     @Test
-    void parentPathIsAChainFromModuleToHit() {
-        DefaultTreeModel model = TreeModels.parentPath(new SearchHit(g.databindRuntime));
-
-        assertThat(userObjects(model)).containsExactly(g.runtimeRoot, g.web, g.json, g.databindRuntime);
-        DefaultMutableTreeNode root = (DefaultMutableTreeNode) model.getRoot();
-        assertThat(root.getDepth()).isEqualTo(3);
-    }
-
-    @Test
-    void childrenCopiesTheWholeSubtree() {
-        DefaultTreeModel model = TreeModels.children(g.runtimeRoot);
+    void pathRunsFromModuleToHitAndHitKeepsItsChildren() {
+        DefaultTreeModel model = TreeModels.pathWithChildren(new SearchHit(g.databindRuntime));
 
         assertThat(userObjects(model)).containsExactly(
-                g.runtimeRoot, g.web, g.json, g.databindRuntime, g.jacksonCore, g.coreModule, g.omittedCore);
+                g.runtimeRoot, g.web, g.json, g.databindRuntime, g.jacksonCore);
+        DefaultMutableTreeNode root = (DefaultMutableTreeNode) model.getRoot();
+        assertThat(root.getChildCount()).isEqualTo(1);
     }
 
     @Test
-    void omittedNodeHasNoChildren() {
-        DefaultTreeModel model = TreeModels.children(g.omittedCore);
+    void siblingsOfThePathAreLeftOut() {
+        DefaultTreeModel model = TreeModels.pathWithChildren(new SearchHit(g.web));
 
-        assertThat(userObjects(model)).containsExactly(g.omittedCore);
+        assertThat(userObjects(model)).containsExactly(
+                g.runtimeRoot, g.web, g.json, g.databindRuntime, g.jacksonCore);
+        assertThat(userObjects(model)).doesNotContain(g.coreModule);
+    }
+
+    @Test
+    void omittedHitEndsThePath() {
+        DefaultTreeModel model = TreeModels.pathWithChildren(new SearchHit(g.omittedCore));
+
+        assertThat(userObjects(model)).containsExactly(g.runtimeRoot, g.coreModule, g.omittedCore);
+    }
+
+    @Test
+    void hitTreeNodeIsTheDeepestPathNode() {
+        SearchHit hit = new SearchHit(g.runtimeRoot.children().getFirst());
+        DefaultMutableTreeNode hitNode = TreeModels.hitNode(TreeModels.pathWithChildren(hit), hit);
+
+        assertThat(hitNode.getUserObject()).isSameAs(g.web);
+        assertThat(hitNode.getChildCount()).isEqualTo(1);
+
+        SearchHit json = new SearchHit(g.json);
+        assertThat(TreeModels.hitNode(TreeModels.pathWithChildren(json), json).getUserObject()).isSameAs(g.json);
     }
 
     @Test
