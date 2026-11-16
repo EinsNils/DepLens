@@ -84,6 +84,46 @@ class UpgradeAdvisorTest {
                 .containsExactly("2.13.4.2", "2.13.5", "2.15.0");
     }
 
+    @Test
+    void dateVersionsAreNotCandidatesForSemanticVersions() {
+        MavenVersion current = MavenVersion.of("3.2.1");
+
+        assertThat(UpgradeAdvisor.candidates(current, versions("3.2.1", "3.2.2", "20030418.083655", "20040616"),
+                List.of())).extracting(MavenVersion::toString).containsExactly("3.2.2");
+    }
+
+    @Test
+    void dateVersionsStayCandidatesForDateVersions() {
+        MavenVersion current = MavenVersion.of("20030418.083655");
+
+        assertThat(UpgradeAdvisor.candidates(current, versions("3.2.2", "20040616"), List.of()))
+                .extracting(MavenVersion::toString).containsExactly("20040616");
+    }
+
+    @Test
+    void candidatesKeepTheVariant() {
+        List<MavenVersion> available = versions("31.1-android", "31.1-jre", "33.8.0-android", "33.8.0-jre");
+
+        assertThat(UpgradeAdvisor.candidates(MavenVersion.of("31.0-android"), available, List.of()))
+                .extracting(MavenVersion::toString).containsExactly("31.1-android", "33.8.0-android");
+        assertThat(UpgradeAdvisor.candidates(MavenVersion.of("31.0-jre"), available, List.of()))
+                .extracting(MavenVersion::toString).containsExactly("31.1-jre", "33.8.0-jre");
+    }
+
+    @Test
+    void versionWithoutVariantNeverGetsOne() {
+        assertThat(UpgradeAdvisor.candidates(MavenVersion.of("1.0"), versions("1.1", "2.0-android", "2.0"), List.of()))
+                .extracting(MavenVersion::toString).containsExactly("1.1", "2.0");
+    }
+
+    @Test
+    void releaseQualifiersAreNoVariant() {
+        assertThat(UpgradeAdvisor.candidates(MavenVersion.of("5.2.0.Final"),
+                versions("5.2.1.Final", "5.3.0.Final", "5.4.0", "6.0.0.RELEASE", "6.1.0.GA", "6.2.0-jakarta"), List.of()))
+                .extracting(MavenVersion::toString)
+                .containsExactly("5.2.1.Final", "5.3.0.Final", "5.4.0", "6.0.0.RELEASE", "6.1.0.GA");
+    }
+
     private static UpgradeAdvisor.Upgrade choose(java.util.function.Predicate<MavenVersion> rejected) {
         return UpgradeAdvisor.choose(CURRENT, UpgradeAdvisor.candidates(CURRENT, AVAILABLE, VULNERABILITIES), rejected);
     }

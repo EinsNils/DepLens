@@ -10,6 +10,8 @@ import org.jetbrains.annotations.Nullable;
 public final class UpgradeAdvisor {
     /** Höchstens so viele Kandidaten je Vorschlag werden gegengeprüft. */
     public static final int MAX_TRIES = 5;
+    /** Ab dieser Major gilt eine Version als Datums- oder Build-Nummer ({@code 20040616}). */
+    private static final long DATE_MAJOR = 1000;
 
     public record Upgrade(@Nullable MavenVersion sameMajor, @Nullable MavenVersion latest) {
         public static final Upgrade NONE = new Upgrade(null, null);
@@ -22,12 +24,19 @@ public final class UpgradeAdvisor {
     private UpgradeAdvisor() {
     }
 
-    /** Stabile Versionen über {@code current}, die von keiner der Lücken betroffen sind, aufsteigend. */
+    /**
+     * Stabile Versionen über {@code current}, die von keiner der Lücken betroffen sind, aufsteigend. Datums-Versionen
+     * zählen nur für Datums-Versionen, und die Variante ({@code jre}, {@code android}) bleibt erhalten.
+     */
     public static List<MavenVersion> candidates(MavenVersion current, List<MavenVersion> available,
                                                 List<Vulnerability> vulnerabilities) {
+        boolean currentIsDate = current.major() >= DATE_MAJOR;
+        String variant = current.variant();
         return available.stream()
                 .filter(version -> !version.isPreRelease())
                 .filter(version -> version.compareTo(current) > 0)
+                .filter(version -> currentIsDate || version.major() < DATE_MAJOR)
+                .filter(version -> version.variant().equals(variant))
                 .filter(version -> vulnerabilities.stream().noneMatch(v -> VulnerabilityMatcher.affects(v, version)))
                 .distinct()
                 .sorted()

@@ -8,6 +8,7 @@ import org.apache.maven.artifact.versioning.ComparableVersion;
 public final class MavenVersion implements Comparable<MavenVersion> {
     private static final Set<String> PRE_RELEASE_QUALIFIERS = Set.of(
             "alpha", "beta", "milestone", "m", "rc", "cr", "snapshot", "preview", "ea", "dev");
+    private static final Set<String> RELEASE_QUALIFIERS = Set.of("final", "release", "ga");
 
     private final String text;
     private final ComparableVersion comparable;
@@ -36,6 +37,30 @@ public final class MavenVersion implements Comparable<MavenVersion> {
         String first = tokens()[0];
         boolean numeric = !first.isEmpty() && first.length() <= 18 && first.chars().allMatch(Character::isDigit);
         return numeric ? Long.parseLong(first) : -1;
+    }
+
+    /**
+     * Variante wie {@code jre} oder {@code android}: Buchstaben-Segmente nach dem letzten numerischen Segment,
+     * ohne Release- und Vorab-Qualifier; {@code ""}, wenn es keine gibt.
+     */
+    public String variant() {
+        String[] tokens = tokens();
+        int end = tokens.length;
+        while (end > 0 && !isNumeric(tokens[end - 1])) {
+            end--;
+        }
+        StringBuilder variant = new StringBuilder();
+        for (int i = end; i < tokens.length; i++) {
+            String token = tokens[i];
+            if (!token.isEmpty() && !RELEASE_QUALIFIERS.contains(token) && !PRE_RELEASE_QUALIFIERS.contains(token)) {
+                variant.append(variant.isEmpty() ? "" : "-").append(token);
+            }
+        }
+        return variant.toString();
+    }
+
+    private static boolean isNumeric(String token) {
+        return !token.isEmpty() && token.chars().allMatch(Character::isDigit);
     }
 
     /** Zerlegt an {@code . - _ +} und an Wechseln zwischen Ziffern und Buchstaben. */
