@@ -23,7 +23,7 @@ dafür als Basis dienen.
 | Thema | Entscheidung |
 |---|---|
 | Analysierte Projekte | Gradle |
-| Plugin-Sprache | Java 21 |
+| Plugin-Sprache | Java 25 (die Plattform 2026.2 ist mit Java 25 kompiliert) |
 | Build | Gradle (Kotlin DSL), IntelliJ Platform Gradle Plugin 2.x |
 | Ziel-IDE | IntelliJ IDEA 2026.2 (`sinceBuild = 262`, kein `untilBuild`) |
 | Abhängigkeit | Bundled Plugin `com.intellij.gradle` |
