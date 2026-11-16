@@ -4,13 +4,16 @@ import com.intellij.openapi.Disposable;
 import com.intellij.openapi.externalSystem.dependency.analyzer.DependencyAnalyzerContributor;
 import com.intellij.openapi.externalSystem.dependency.analyzer.DependencyAnalyzerExtension;
 import com.intellij.openapi.externalSystem.dependency.analyzer.DependencyAnalyzerProject;
+import com.intellij.openapi.externalSystem.importing.ImportSpecBuilder;
 import com.intellij.openapi.externalSystem.util.ExternalSystemBundle;
+import com.intellij.openapi.externalSystem.util.ExternalSystemUtil;
 import com.intellij.openapi.project.Project;
 import com.intellij.openapi.util.Disposer;
 import io.github.einsnils.deplens.model.DependencyGraph;
 import java.util.List;
 import kotlin.Unit;
 import org.jetbrains.annotations.Nullable;
+import org.jetbrains.plugins.gradle.settings.GradleSettings;
 import org.jetbrains.plugins.gradle.util.GradleConstants;
 
 /** Einziger Zugang zu IntelliJs Gradle-Dependency-Analyzer. Methoden blockieren – nie auf dem EDT aufrufen. */
@@ -38,6 +41,20 @@ public final class GradleDependencySource implements Disposable {
             return DependencyGraph.empty(module.getTitle());
         }
         return mapper.map(module.getTitle(), current.getDependencies(module));
+    }
+
+    /**
+     * Startet einen Gradle-Sync für alle verknüpften Gradle-Projekte. Nach dessen Ende meldet der Contributor
+     * neue Daten ({@code onDataChanged}).
+     *
+     * @return {@code false}, wenn das Projekt kein verknüpftes Gradle-Projekt hat
+     */
+    public boolean requestSync() {
+        if (GradleSettings.getInstance(project).getLinkedProjectsSettings().isEmpty()) {
+            return false;
+        }
+        ExternalSystemUtil.refreshProjects(new ImportSpecBuilder(project, GradleConstants.SYSTEM_ID));
+        return true;
     }
 
     /**
