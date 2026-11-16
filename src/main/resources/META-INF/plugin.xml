@@ -3,8 +3,8 @@
     <name>DepLens</name>
     <vendor>EinsNils</vendor>
     <description><![CDATA[
-        Search Gradle dependencies per module and see who pulls them in (parents)
-        and what they bring along (children).
+        Browse Gradle dependencies per module grouped by vendor, see every path that pulls a dependency in,
+        and check them for known vulnerabilities (OSV.dev, optional Sonatype OSS Index) with safe upgrade suggestions.
     ]]></description>
 
     <depends>com.intellij.modules.platform</depends>

@@ -20,6 +20,20 @@ selbst einen Gradle-Sync.
 
 Installation: *Settings → Plugins → ⚙ → Install Plugin from Disk…* und das ZIP wählen.
 
+## Sicherheitsprüfung
+
+DepLens prüft jede Dependency automatisch gegen [OSV.dev](https://osv.dev) und liest die verfügbaren
+Versionen von Maven Central. In der Liste steht ⛔ (mit Anzahl der Lücken), ✔ (keine bekannten Lücken)
+oder `?` (nicht prüfbar). Im Tab „Sicherheit" stehen die Lücken mit Schweregrad, Link und
+„behoben in" sowie zwei Upgrade-Vorschläge: die nächste sichere Version mit gleicher Major und die
+neueste sichere Version.
+
+- Ergebnisse werden 24 h zwischengespeichert; das Neu-prüfen-Icon (Sicherheit neu prüfen) prüft neu.
+- „Nur verwundbare" blendet alle sicheren Dependencies aus.
+- Gesendet werden nur Koordinaten (`group:artifact[:version]`).
+- *Settings → Tools → DepLens*: Prüfung an/aus, Cache-Dauer, optional Sonatype OSS Index
+  (Benutzer + API-Token, Token im IntelliJ-Passwortspeicher).
+
 ## Datenquelle
 
 DepLens nutzt IntelliJs eingebauten Gradle-Dependency-Analyzer
