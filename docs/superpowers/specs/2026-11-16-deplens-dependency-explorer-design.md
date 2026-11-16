@@ -128,7 +128,7 @@ Datenfluss: Modul wählen → `GradleDependencySource` lädt im Hintergrund
 
 ## Tests
 
-- `DependencyGraph` und `DependencySearch`: JUnit 5, test-first. Fälle: Treffer in mehreren
+- `DependencyGraph`, `VendorCategory` und `DependencyCatalog`: JUnit 5, test-first. Fälle: Treffer in mehreren
   Configurations, mehrere Pfade zum selben Artefakt, Konflikt-Status, `Omitted`-Knoten,
   Groß-/Kleinschreibung, leere Suche.
 - `DependencyGraphMapper`: JUnit 5 mit Fake-Implementierungen der Analyzer-Interfaces.
