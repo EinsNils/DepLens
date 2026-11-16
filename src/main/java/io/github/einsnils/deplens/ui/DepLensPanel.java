@@ -76,7 +76,10 @@ public final class DepLensPanel extends JPanel implements Disposable {
         toolbar.add(moduleBox, BorderLayout.WEST);
         toolbar.add(refreshButton, BorderLayout.EAST);
 
-        retryButton.addActionListener(e -> reloadModules());
+        retryButton.addActionListener(e -> {
+            source.reset();
+            reloadModules();
+        });
         JPanel messagePanel = new JPanel(new BorderLayout());
         messagePanel.add(messageLabel, BorderLayout.CENTER);
         JPanel retryRow = new JPanel();
@@ -108,8 +111,9 @@ public final class DepLensPanel extends JPanel implements Disposable {
     private void reloadModules() {
         DependencyAnalyzerProject previous = (DependencyAnalyzerProject) moduleBox.getSelectedItem();
         String previousTitle = previous == null ? null : previous.getTitle();
+        long request = sequencer.next();
         loadingPanel.startLoading();
-        inBackground(source::modules, modules -> {
+        inBackground(request, source::modules, modules -> {
             loadingPanel.stopLoading();
             updatingModules = true;
             try {
@@ -123,6 +127,7 @@ public final class DepLensPanel extends JPanel implements Disposable {
                 updatingModules = false;
             }
             if (modules.isEmpty()) {
+                graph = DependencyGraph.empty("");
                 showMessage("Kein Gradle-Projekt gefunden – bitte Gradle-Sync ausführen.", false);
             } else {
                 loadSelectedModule();
@@ -137,28 +142,37 @@ public final class DepLensPanel extends JPanel implements Disposable {
         }
         long request = sequencer.next();
         loadingPanel.startLoading();
-        inBackground(() -> source.load(module), loaded -> {
-            if (!sequencer.isCurrent(request)) {
-                return;
-            }
+        inBackground(request, () -> source.load(module), loaded -> {
             loadingPanel.stopLoading();
             graph = loaded;
             onGraphLoaded();
         });
     }
 
-    private <T> void inBackground(Supplier<T> work, Consumer<T> onEdt) {
+    /** Runs work off the EDT; results, cancellations and failures of superseded requests are discarded. */
+    private <T> void inBackground(long request, Supplier<T> work, Consumer<T> onEdt) {
         ApplicationManager.getApplication().executeOnPooledThread(() -> {
             try {
                 T result = work.get();
-                runOnEdt(() -> onEdt.accept(result));
-            } catch (ProcessCanceledException e) {
-                runOnEdt(loadingPanel::stopLoading);
-            } catch (RuntimeException e) {
-                LOG.warn("DepLens: loading failed", e);
                 runOnEdt(() -> {
-                    loadingPanel.stopLoading();
-                    showMessage("Laden fehlgeschlagen: " + e.getMessage(), true);
+                    if (sequencer.isCurrent(request)) {
+                        onEdt.accept(result);
+                    }
+                });
+            } catch (ProcessCanceledException e) {
+                runOnEdt(() -> {
+                    if (sequencer.isCurrent(request)) {
+                        loadingPanel.stopLoading();
+                    }
+                });
+            } catch (Throwable e) {
+                LOG.warn("DepLens: loading failed", e);
+                String detail = e.getMessage() != null ? e.getMessage() : e.getClass().getSimpleName();
+                runOnEdt(() -> {
+                    if (sequencer.isCurrent(request)) {
+                        loadingPanel.stopLoading();
+                        showMessage("Laden fehlgeschlagen: " + detail, true);
+                    }
                 });
             }
         });
