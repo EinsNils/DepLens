@@ -9,4 +9,11 @@
 
     <depends>com.intellij.modules.platform</depends>
     <depends>com.intellij.gradle</depends>
+
+    <extensions defaultExtensionNs="com.intellij">
+        <toolWindow id="DepLens"
+                    anchor="right"
+                    icon="AllIcons.Nodes.PpLib"
+                    factoryClass="io.github.einsnils.deplens.ui.DepLensToolWindowFactory"/>
+    </extensions>
 </idea-plugin>
