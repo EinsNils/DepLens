@@ -3,8 +3,10 @@
     <name>DepLens</name>
     <vendor>EinsNils</vendor>
     <description><![CDATA[
-        Browse Gradle dependencies per module grouped by vendor, see every path that pulls a dependency in,
-        and check them for known vulnerabilities (OSV.dev, optional Sonatype OSS Index) with safe upgrade suggestions.
+        <p><img src="https://raw.githubusercontent.com/EinsNils/DepLens/main/docs/assets/deplens-banner.png"
+                alt="DepLens" width="560" height="280"></p>
+        <p>Browse Gradle dependencies per module grouped by vendor, see every path that pulls a dependency in,
+        and check them for known vulnerabilities (OSV.dev, optional Sonatype OSS Index) with safe upgrade suggestions.</p>
     ]]></description>
 
     <depends>com.intellij.modules.platform</depends>
